@@ -1,5 +1,16 @@
 import { TranslateRequestPayload, UsageResponse } from "../../global/types";
 
+function safeSnippet(s: string, max = 400) {
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
+async function readBody(resp: Response): Promise<string> {
+  try {
+    return await resp.text();
+  } catch {
+    return "";
+  }
+}
 
 export function normalizeOriginFromEndpoint(endpoint?: string) {
   const fallback = "https://api-free.deepl.com";
@@ -13,14 +24,18 @@ export function normalizeOriginFromEndpoint(endpoint?: string) {
   }
 }
 
-export async function deeplTranslateHttp(origin: string, key: string, payload: TranslateRequestPayload) {
-  const body: any = {
+export async function deeplTranslateHttp(
+  origin: string,
+  key: string,
+  payload: TranslateRequestPayload
+): Promise<string[]> {
+  const body = {
     text: payload.texts,
     target_lang: payload.targetLang,
     split_sentences: "nonewlines",
-    preserve_formatting: true
+    preserve_formatting: true,
+    ...(payload.sourceLang ? { source_lang: payload.sourceLang } : {})
   };
-  if (payload.sourceLang) body.source_lang = payload.sourceLang;
 
   const resp = await fetch(`${origin}/v2/translate`, {
     method: "POST",

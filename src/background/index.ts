@@ -3,28 +3,36 @@ import type { TranslateRequestPayload, TranslateResponse, UsageWireResponse } fr
 import { getSettingsOrThrow } from "./settings";
 import { deeplTranslateHttp, deeplUsageHttp } from "../services/deepl/client";
 
-chrome.runtime.onMessage.addListener((msg) => {
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === MSG_DEEPL_TRANSLATE) {
-    return (async (): Promise<TranslateResponse> => {
+    (async () => {
       try {
         const { key, origin } = await getSettingsOrThrow();
         const translations = await deeplTranslateHttp(origin, key, msg.payload as TranslateRequestPayload);
-        return { ok: true, translations };
+        const out: TranslateResponse = { ok: true, translations };
+        sendResponse(out);
       } catch (e: any) {
-        return { ok: false, error: String(e?.message || e) };
+        const out: TranslateResponse = { ok: false, error: String(e?.message || e) };
+        sendResponse(out);
       }
     })();
+
+    return true;
   }
 
   if (msg?.type === MSG_DEEPL_USAGE) {
-    return (async (): Promise<UsageWireResponse> => {
+    (async () => {
       try {
         const { key, origin } = await getSettingsOrThrow();
         const usage = await deeplUsageHttp(origin, key);
-        return { ok: true, usage };
+        const out: UsageWireResponse = { ok: true, usage };
+        sendResponse(out);
       } catch (e: any) {
-        return { ok: false, error: String(e?.message || e) };
+        const out: UsageWireResponse = { ok: false, error: String(e?.message || e) };
+        sendResponse(out);
       }
     })();
+
+    return true;
   }
 });
