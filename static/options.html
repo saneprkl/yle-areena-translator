@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 720px; margin: 20px auto; padding: 0 12px; }
+      input, select, button { width: 100%; padding: 10px; margin-top: 8px; }
+      .row { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+      .row > * { flex: 1; }
+      .small { font-size: 12px; opacity: .85; }
+      .usageBox { margin-top: 12px; padding: 10px; border: 1px solid #ddd; border-radius: 10px; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    </style>
+  </head>
+  <body>
+    <h2>Areena DeepL — Options</h2>
+
+    <label>DeepL API key</label>
+    <input id="key" type="password" placeholder="DeepL Auth Key" />
+
+    <div class="row">
+      <label class="small" style="flex: 0 0 auto;">
+        <input id="showKey" type="checkbox" />
+        Show key
+      </label>
+      <button id="clearKey" type="button">Clear key</button>
+    </div>
+
+    <label>DeepL endpoint</label>
+    <select id="endpoint">
+      <option value="https://api-free.deepl.com">Free (api-free.deepl.com)</option>
+      <option value="https://api.deepl.com">Pro (api.deepl.com)</option>
+    </select>
+
+    <button id="save" type="button">Save</button>
+    <div id="saveStatus" class="small"></div>
+
+    <div class="usageBox">
+      <div style="display:flex; gap:10px; align-items:center;">
+        <b style="flex:1;">Usage</b>
+        <button id="refreshUsage" type="button" style="flex: 0 0 auto; width: auto; padding: 8px 10px;">Refresh</button>
+      </div>
+      <div id="usageText" class="small" style="margin-top:8px;">No data yet.</div>
+    </div>
+
+    <p class="small">
+      The key is stored in <code>chrome.storage.sync</code>
+    </p>
+
+    <script src="options.js"></script>
+  </body>
+</html>
