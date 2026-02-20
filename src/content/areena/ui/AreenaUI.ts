@@ -11,7 +11,15 @@ export class AreenaUI {
   private bumpHandler: (() => void) | null = null;
   private pauseHandler: (() => void) | null = null;
 
+  private domObserver: MutationObserver | null = null;
+  private reattachRaf: number | null = null;
+
   mount(video: HTMLVideoElement) {
+    if (this.root) this.destroy();
+
+    // Remove any stale UI from previous instances/mounts
+    this.cleanupStrayUi();
+
     this.boundVideo = video;
     const parent = video.parentElement ?? document.body;
 
@@ -44,7 +52,7 @@ export class AreenaUI {
     this.subtitleBox.style.pointerEvents = "none";
     this.subtitleBox.style.fontFamily =
       'system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans", Arial, sans-serif';
-    this.subtitleBox.style.fontSize = "20px";
+    this.subtitleBox.style.fontSize = "42px";
     this.subtitleBox.style.lineHeight = "1.35";
     this.subtitleBox.style.fontWeight = "650";
     this.subtitleBox.style.textShadow = "0 2px 8px rgba(0,0,0,0.95)";
@@ -73,10 +81,20 @@ export class AreenaUI {
     this.toggleBtn.onclick = () => void this.onToggle?.();
 
     this.reattachToggle(video);
+    this.startObserving(video);
   }
 
   destroy() {
     this.stopFallbackAutoHide();
+
+    if (this.domObserver) {
+      this.domObserver.disconnect();
+      this.domObserver = null;
+    }
+    if (this.reattachRaf) {
+      cancelAnimationFrame(this.reattachRaf);
+      this.reattachRaf = null;
+    }
 
     if (this.boundVideo && this.bumpHandler) {
       this.boundVideo.removeEventListener("mousemove", this.bumpHandler);
@@ -96,6 +114,27 @@ export class AreenaUI {
     this.boundVideo = null;
     this.bumpHandler = null;
     this.pauseHandler = null;
+  }
+
+  private cleanupStrayUi() {
+    document.querySelectorAll("#areena-deepl-root").forEach((n) => n.remove());
+    document.querySelectorAll("#areena-deepl-toggle").forEach((n) => n.remove());
+    document.querySelectorAll('[data-areena-deepl-host="1"]').forEach((n) => n.remove());
+  }
+
+  private startObserving(video: HTMLVideoElement) {
+    const parent = (video.parentElement ?? document.body) as HTMLElement;
+
+    this.domObserver = new MutationObserver(() => {
+      if (!this.boundVideo) return;
+      if (this.reattachRaf) return;
+      this.reattachRaf = requestAnimationFrame(() => {
+        this.reattachRaf = null;
+        this.reattachToggle(this.boundVideo!);
+      });
+    });
+
+    this.domObserver.observe(parent, { subtree: true, childList: true });
   }
 
   setOnToggle(fn: () => void | Promise<void>) {
@@ -206,6 +245,10 @@ export class AreenaUI {
       this.root.appendChild(this.toggleHost);
     }
 
+    this.root.querySelectorAll('[data-areena-deepl-host="1"]').forEach((host) => {
+      if (host !== this.toggleHost) host.remove();
+    });
+    
     if (this.toggleBtn.parentElement !== this.toggleHost) {
       this.toggleBtn.remove();
       this.toggleHost.appendChild(this.toggleBtn);
