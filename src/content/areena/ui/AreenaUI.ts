@@ -17,7 +17,6 @@ export class AreenaUI {
   mount(video: HTMLVideoElement) {
     if (this.root) this.destroy();
 
-    // Remove any stale UI from previous instances/mounts
     this.cleanupStrayUi();
 
     this.boundVideo = video;
@@ -78,6 +77,7 @@ export class AreenaUI {
     this.toggleBtn.style.pointerEvents = "auto";
     this.toggleBtn.style.userSelect = "none";
     this.toggleBtn.style.textShadow = "0 2px 8px rgba(0,0,0,0.9)";
+    this.toggleBtn.textContent = "Translate: OFF";
     this.toggleBtn.onclick = () => void this.onToggle?.();
 
     this.reattachToggle(video);
@@ -105,7 +105,10 @@ export class AreenaUI {
       this.boundVideo.removeEventListener("pause", this.pauseHandler);
     }
 
+    this.toggleBtn?.remove();
+    this.toggleHost?.remove();
     this.root?.remove();
+
     this.root = null;
     this.subtitleBox = null;
     this.toggleBtn = null;
@@ -168,13 +171,32 @@ export class AreenaUI {
     if (bar) {
       if (!this.toggleHost) {
         this.toggleHost = document.createElement("div");
+        this.toggleHost.setAttribute("data-areena-deepl-host", "1");
         this.toggleHost.style.display = "flex";
         this.toggleHost.style.alignItems = "center";
         this.toggleHost.style.justifyContent = "center";
         this.toggleHost.style.pointerEvents = "auto";
         this.toggleHost.style.flex = "1 1 auto";
         this.toggleHost.style.minWidth = "60px";
+      } else {
+        this.toggleHost.setAttribute("data-areena-deepl-host", "1");
+        this.toggleHost.style.display = "flex";
+        this.toggleHost.style.alignItems = "center";
+        this.toggleHost.style.justifyContent = "center";
+        this.toggleHost.style.pointerEvents = "auto";
+        this.toggleHost.style.flex = "1 1 auto";
+        this.toggleHost.style.minWidth = "60px";
+        this.toggleHost.style.position = "";
+        this.toggleHost.style.left = "";
+        this.toggleHost.style.bottom = "";
+        this.toggleHost.style.transform = "";
+        this.toggleHost.style.opacity = "";
+        this.toggleHost.style.transition = "";
       }
+
+      bar.querySelectorAll('[data-areena-deepl-host="1"]').forEach((host) => {
+        if (host !== this.toggleHost) host.remove();
+      });
 
       const idx = Math.floor(bar.children.length / 2);
       const ref = (bar.children[idx] ?? null) as Element | null;
@@ -232,23 +254,32 @@ export class AreenaUI {
 
     if (!this.toggleHost) {
       this.toggleHost = document.createElement("div");
-      this.toggleHost.style.position = "absolute";
-      this.toggleHost.style.left = "50%";
-      this.toggleHost.style.bottom = "12px";
-      this.toggleHost.style.transform = "translateX(-50%)";
-      this.toggleHost.style.pointerEvents = "auto";
-      this.toggleHost.style.opacity = "0";
-      this.toggleHost.style.transition = "opacity 150ms ease";
-      this.root.appendChild(this.toggleHost);
-    } else if (this.toggleHost.parentElement !== this.root) {
+    }
+
+    this.toggleHost.setAttribute("data-areena-deepl-host", "1");
+    this.toggleHost.style.position = "absolute";
+    this.toggleHost.style.left = "50%";
+    this.toggleHost.style.bottom = "12px";
+    this.toggleHost.style.transform = "translateX(-50%)";
+    this.toggleHost.style.pointerEvents = "auto";
+    this.toggleHost.style.opacity = "0";
+    this.toggleHost.style.transition = "opacity 150ms ease";
+
+    this.toggleHost.style.display = "";
+    this.toggleHost.style.alignItems = "";
+    this.toggleHost.style.justifyContent = "";
+    this.toggleHost.style.flex = "";
+    this.toggleHost.style.minWidth = "";
+
+    if (this.toggleHost.parentElement !== this.root) {
       this.toggleHost.remove();
       this.root.appendChild(this.toggleHost);
     }
 
-    this.root.querySelectorAll('[data-areena-deepl-host="1"]').forEach((host) => {
+    document.querySelectorAll('[data-areena-deepl-host="1"]').forEach((host) => {
       if (host !== this.toggleHost) host.remove();
     });
-    
+
     if (this.toggleBtn.parentElement !== this.toggleHost) {
       this.toggleBtn.remove();
       this.toggleHost.appendChild(this.toggleBtn);
@@ -284,8 +315,7 @@ export class AreenaUI {
       video.addEventListener("pause", this.pauseHandler);
     }
 
-    if (video.paused) this.showFallbackToggle();
-    else this.hideFallbackToggle();
+    bump();
   }
 
   private stopFallbackAutoHide() {

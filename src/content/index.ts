@@ -7,53 +7,64 @@ import { AreenaUI } from "./areena/ui/AreenaUI";
 let mountedForVideo: HTMLVideoElement | null = null;
 let ui: AreenaUI | null = null;
 let session: TranslatorSession | null = null;
+let mounting = false;
 
 async function mountOrRemount() {
-  const video = await waitForVideo();
+  if (mounting) return;
+  mounting = true;
 
-  if (mountedForVideo === video) {
-    ui?.reattachToggle(video);
-    return;
-  }
+  try {
+    const video = await waitForVideo();
 
-  mountedForVideo = video;
+    if (mountedForVideo === video) {
+      ui?.reattachToggle(video);
+      return;
+    }
 
-  session?.stop();
-  session = null;
+    mountedForVideo = video;
 
-  ui?.destroy();
-  ui = new AreenaUI();
-  ui.mount(video);
+    session?.stop();
+    session = null;
 
-  const state = await loadState();
-  ui.setToggleLabel(state.enabled, state.targetLang);
+    ui?.destroy();
+    ui = new AreenaUI();
+    ui.mount(video);
 
-  ui.setOnToggle(async () => {
-    const current = await loadState();
-    const next = { ...current, enabled: !current.enabled };
-    await saveState(next);
+    const state = await loadState();
+    ui.setToggleLabel(state.enabled, state.targetLang);
 
-    ui!.setToggleLabel(next.enabled, next.targetLang);
+    ui.setOnToggle(async () => {
+      const current = await loadState();
+      const next = { ...current, enabled: !current.enabled };
+      await saveState(next);
 
-    if (next.enabled) {
-      session?.stop();
-      session = new TranslatorSession(video, next.targetLang, ui!);
+      ui!.setToggleLabel(next.enabled, next.targetLang);
+
+      if (next.enabled) {
+        session?.stop();
+        session = new TranslatorSession(video, next.targetLang, ui!);
+        await session.start();
+      } else {
+        session?.stop();
+        ui!.hideSubtitle();
+      }
+    });
+
+    if (state.enabled) {
+      session = new TranslatorSession(video, state.targetLang, ui);
       await session.start();
     } else {
-      session?.stop();
-      ui!.hideSubtitle();
+      ui.hideSubtitle();
     }
-  });
-
-  if (state.enabled) {
-    session = new TranslatorSession(video, state.targetLang, ui);
-    await session.start();
-  } else {
-    ui.hideSubtitle();
+  } finally {
+    mounting = false;
   }
 }
 
-const mo = new MutationObserver(() => void mountOrRemount().catch(() => {}));
+const runMount = () =>
+  mountOrRemount().catch((err) => console.error("Translator mount failed: ", err));
+
+const mo = new MutationObserver(runMount);
 mo.observe(document.documentElement, { childList: true, subtree: true });
 
-void mountOrRemount().catch(() => {});
+runMount();
