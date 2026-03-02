@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Areena DeepL Subtitles (Dev)",
-  "version": "0.0.1",
-  "permissions": ["storage"],
+  "name": "Yle Areena DeepL Translator",
+  "version": "1.0.1",
+  "permissions": [
+    "storage"
+  ],
   "host_permissions": [
     "*://*.yle.fi/*",
     "https://api-free.deepl.com/*",
@@ -14,8 +16,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.yle.fi/*"],
-      "js": ["content.js"],
+      "matches": [
+        "*://*.yle.fi/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     }
