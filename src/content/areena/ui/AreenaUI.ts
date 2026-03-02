@@ -1,6 +1,8 @@
+import { SubtitleOverlay } from "./SubtitleOverlay/SubtitleOverlay";
+
 export class AreenaUI {
   private root: HTMLDivElement | null = null;
-  private subtitleBox: HTMLDivElement | null = null;
+  private subtitle: SubtitleOverlay | null = null;
   private toggleBtn: HTMLButtonElement | null = null;
   private toggleHost: HTMLDivElement | null = null;
 
@@ -34,30 +36,8 @@ export class AreenaUI {
     this.root.style.pointerEvents = "none";
     (parent as HTMLElement).appendChild(this.root);
 
-    this.subtitleBox = document.createElement("div");
-    this.subtitleBox.id = "areena-deepl-subs";
-    this.subtitleBox.style.position = "absolute";
-    this.subtitleBox.style.left = "50%";
-    this.subtitleBox.style.transform = "translateX(-50%)";
-    this.subtitleBox.style.bottom = "10%";
-    this.subtitleBox.style.maxWidth = "min(980px, 94%)";
-    this.subtitleBox.style.padding = "12px 16px";
-    this.subtitleBox.style.background = "rgba(0,0,0,0.78)";
-    this.subtitleBox.style.color = "#fff";
-    this.subtitleBox.style.borderRadius = "14px";
-    this.subtitleBox.style.border = "1px solid rgba(255,255,255,0.12)";
-    this.subtitleBox.style.textAlign = "center";
-    this.subtitleBox.style.whiteSpace = "pre-line";
-    this.subtitleBox.style.pointerEvents = "none";
-    this.subtitleBox.style.fontFamily =
-      'system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans", Arial, sans-serif';
-    this.subtitleBox.style.fontSize = "42px";
-    this.subtitleBox.style.lineHeight = "1.35";
-    this.subtitleBox.style.fontWeight = "650";
-    this.subtitleBox.style.textShadow = "0 2px 8px rgba(0,0,0,0.95)";
-    this.subtitleBox.textContent = "";
-    this.subtitleBox.style.display = "none";
-    this.root.appendChild(this.subtitleBox);
+    this.subtitle = new SubtitleOverlay();
+    this.subtitle.mount(this.root);
 
     this.toggleBtn = document.createElement("button");
     this.toggleBtn.id = "areena-deepl-toggle";
@@ -107,10 +87,11 @@ export class AreenaUI {
 
     this.toggleBtn?.remove();
     this.toggleHost?.remove();
+    this.subtitle?.destroy();
     this.root?.remove();
 
     this.root = null;
-    this.subtitleBox = null;
+    this.subtitle = null;
     this.toggleBtn = null;
     this.toggleHost = null;
     this.onToggle = null;
@@ -122,6 +103,7 @@ export class AreenaUI {
   private cleanupStrayUi() {
     document.querySelectorAll("#areena-deepl-root").forEach((n) => n.remove());
     document.querySelectorAll("#areena-deepl-toggle").forEach((n) => n.remove());
+    document.querySelectorAll("#areena-deepl-subs").forEach((n) => n.remove());
     document.querySelectorAll('[data-areena-deepl-host="1"]').forEach((n) => n.remove());
   }
 
@@ -151,17 +133,11 @@ export class AreenaUI {
   }
 
   showSubtitle(text: string) {
-    if (!this.subtitleBox) return;
-    const clean = text.trim();
-    if (!clean) return this.hideSubtitle();
-    this.subtitleBox.textContent = clean;
-    this.subtitleBox.style.display = "block";
+    this.subtitle?.show(text);
   }
 
   hideSubtitle() {
-    if (!this.subtitleBox) return;
-    this.subtitleBox.textContent = "";
-    this.subtitleBox.style.display = "none";
+    this.subtitle?.hide();
   }
 
   reattachToggle(video: HTMLVideoElement) {
@@ -214,8 +190,18 @@ export class AreenaUI {
       return;
     }
 
-    this.ensureFallbackHost();
-    this.startFallbackAutoHide(video);
+    this.stopFallbackAutoHide();
+
+    if (
+      this.toggleHost &&
+      this.toggleHost.isConnected &&
+      this.toggleHost.parentElement &&
+      this.toggleHost.parentElement !== this.root
+    ) {
+      return;
+    }
+
+    this.toggleHost?.remove();
   }
 
   private findControlBar(video: HTMLVideoElement): HTMLElement | null {
