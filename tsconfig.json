@@ -6,7 +6,7 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
-    "types": ["chrome"]
+    "types": ["chrome", "node"]
   },
-  "include": ["src"]
+  "include": ["src", "scripts", "build.ts"]
 }
