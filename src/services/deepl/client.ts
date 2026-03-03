@@ -1,4 +1,8 @@
 import { TranslateRequestPayload, UsageResponse } from "../../global/types";
+import { createLogger, initLogging } from "../../global/logger";
+
+const log = createLogger("deepl/http");
+void initLogging();
 
 function safeSnippet(s: string, max = 400) {
   return s.length > max ? s.slice(0, max) + "…" : s;
@@ -29,6 +33,17 @@ export async function deeplTranslateHttp(
   key: string,
   payload: TranslateRequestPayload
 ): Promise<string[]> {
+  const started = Date.now();
+
+  log.debug("POST /v2/translate -> sending", {
+    origin,
+    targetLang: payload.targetLang,
+    sourceLang: payload.sourceLang ?? null,
+    textCount: payload.texts.length,
+    // optional: sizes only, not content
+    textLengths: payload.texts.map((t) => t.length),
+  });
+
   const body = {
     text: payload.texts,
     target_lang: payload.targetLang,
@@ -46,10 +61,19 @@ export async function deeplTranslateHttp(
     body: JSON.stringify(body)
   });
 
+  const ms = Date.now() - started;
+
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
+    log.warn("POST /v2/translate -> failed", {
+      ms,
+      status: resp.status,
+      bodySnippet: t.slice(0, 200),
+    });
     throw new Error(`DeepL translate HTTP ${resp.status}: ${t.slice(0, 200)}`);
   }
+
+  log.info("POST /v2/translate -> ok", { ms, status: resp.status });
 
   const json = (await resp.json()) as { translations: { text: string }[] };
   return json.translations.map((t) => t.text);
