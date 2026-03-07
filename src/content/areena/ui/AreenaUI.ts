@@ -16,7 +16,7 @@ export class AreenaUI {
   private domObserver: MutationObserver | null = null;
   private reattachRaf: number | null = null;
 
-  mount(video: HTMLVideoElement) {
+  mount = (video: HTMLVideoElement): void => {
     if (this.root) this.destroy();
 
     this.cleanupStrayUi();
@@ -25,7 +25,7 @@ export class AreenaUI {
     const parent = video.parentElement ?? document.body;
 
     if (getComputedStyle(parent).position === "static") {
-      (parent as HTMLElement).style.position = "relative";
+      parent.style.position = "relative";
     }
 
     this.root = document.createElement("div");
@@ -34,7 +34,7 @@ export class AreenaUI {
     this.root.style.inset = "0";
     this.root.style.zIndex = "2147483647";
     this.root.style.pointerEvents = "none";
-    (parent as HTMLElement).appendChild(this.root);
+    parent.appendChild(this.root);
 
     this.subtitle = new SubtitleOverlay();
     this.subtitle.mount(this.root);
@@ -62,9 +62,9 @@ export class AreenaUI {
 
     this.reattachToggle(video);
     this.startObserving(video);
-  }
+  };
 
-  destroy() {
+  destroy = (): void => {
     this.stopFallbackAutoHide();
 
     if (this.domObserver) {
@@ -98,17 +98,21 @@ export class AreenaUI {
     this.boundVideo = null;
     this.bumpHandler = null;
     this.pauseHandler = null;
-  }
+  };
 
-  private cleanupStrayUi() {
+  private cleanupStrayUi = (): void => {
     document.querySelectorAll("#areena-deepl-root").forEach((n) => n.remove());
-    document.querySelectorAll("#areena-deepl-toggle").forEach((n) => n.remove());
+    document
+      .querySelectorAll("#areena-deepl-toggle")
+      .forEach((n) => n.remove());
     document.querySelectorAll("#areena-deepl-subs").forEach((n) => n.remove());
-    document.querySelectorAll('[data-areena-deepl-host="1"]').forEach((n) => n.remove());
-  }
+    document
+      .querySelectorAll('[data-areena-deepl-host="1"]')
+      .forEach((n) => n.remove());
+  };
 
-  private startObserving(video: HTMLVideoElement) {
-    const parent = (video.parentElement ?? document.body) as HTMLElement;
+  private startObserving = (video: HTMLVideoElement): void => {
+    const parent = video.parentElement ?? document.body;
 
     this.domObserver = new MutationObserver(() => {
       if (!this.boundVideo) return;
@@ -120,27 +124,31 @@ export class AreenaUI {
     });
 
     this.domObserver.observe(parent, { subtree: true, childList: true });
-  }
+  };
 
-  setOnToggle(fn: () => void | Promise<void>) {
+  setOnToggle = (fn: () => void | Promise<void>): void => {
     this.onToggle = fn;
-  }
+  };
 
-  setToggleLabel(enabled: boolean, targetLang: string) {
+  setToggleLabel = (enabled: boolean, targetLang: string): void => {
     if (!this.toggleBtn) return;
-    this.toggleBtn.textContent = enabled ? `Translate: ON (${targetLang})` : "Translate: OFF";
-    this.toggleBtn.style.outline = enabled ? "2px solid rgba(80,200,120,0.9)" : "none";
-  }
+    this.toggleBtn.textContent = enabled
+      ? `Translate: ON (${targetLang})`
+      : "Translate: OFF";
+    this.toggleBtn.style.outline = enabled
+      ? "2px solid rgba(80,200,120,0.9)"
+      : "none";
+  };
 
-  showSubtitle(text: string) {
+  showSubtitle = (text: string): void => {
     this.subtitle?.show(text);
-  }
+  };
 
-  hideSubtitle() {
+  hideSubtitle = (): void => {
     this.subtitle?.hide();
-  }
+  };
 
-  reattachToggle(video: HTMLVideoElement) {
+  reattachToggle = (video: HTMLVideoElement): void => {
     if (!this.root || !this.toggleBtn) return;
 
     const bar = this.findControlBar(video);
@@ -202,10 +210,10 @@ export class AreenaUI {
     }
 
     this.toggleHost?.remove();
-  }
+  };
 
-  private findControlBar(video: HTMLVideoElement): HTMLElement | null {
-    const container = (video.parentElement ?? document.body) as HTMLElement;
+  private findControlBar = (video: HTMLVideoElement): HTMLElement | null => {
+    const container = video.parentElement ?? document.body;
 
     const selectors = [
       '[role="toolbar"]',
@@ -214,10 +222,12 @@ export class AreenaUI {
       '[class*="controls"]',
       '[class*="Controls"]',
       '[data-testid*="control"]',
-      '[data-test*="control"]'
+      '[data-test*="control"]',
     ].join(",");
 
-    const candidates = Array.from(container.querySelectorAll<HTMLElement>(selectors));
+    const candidates = Array.from(
+      container.querySelectorAll<HTMLElement>(selectors),
+    );
     const vRect = video.getBoundingClientRect();
 
     const nearBottom = candidates.filter((el) => {
@@ -231,11 +241,14 @@ export class AreenaUI {
       return visible && closeToVideo;
     });
 
-    nearBottom.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
+    nearBottom.sort(
+      (a, b) =>
+        b.getBoundingClientRect().width - a.getBoundingClientRect().width,
+    );
     return nearBottom[0] ?? null;
-  }
+  };
 
-  private ensureFallbackHost() {
+  private ensureFallbackHost = (): void => {
     if (!this.root || !this.toggleBtn) return;
 
     if (!this.toggleHost) {
@@ -262,27 +275,29 @@ export class AreenaUI {
       this.root.appendChild(this.toggleHost);
     }
 
-    document.querySelectorAll('[data-areena-deepl-host="1"]').forEach((host) => {
-      if (host !== this.toggleHost) host.remove();
-    });
+    document
+      .querySelectorAll('[data-areena-deepl-host="1"]')
+      .forEach((host) => {
+        if (host !== this.toggleHost) host.remove();
+      });
 
     if (this.toggleBtn.parentElement !== this.toggleHost) {
       this.toggleBtn.remove();
       this.toggleHost.appendChild(this.toggleBtn);
     }
-  }
+  };
 
-  private showFallbackToggle() {
+  private showFallbackToggle = (): void => {
     if (!this.toggleHost) return;
     this.toggleHost.style.opacity = "1";
-  }
+  };
 
-  private hideFallbackToggle() {
+  private hideFallbackToggle = (): void => {
     if (!this.toggleHost) return;
     this.toggleHost.style.opacity = "0";
-  }
+  };
 
-  private startFallbackAutoHide(video: HTMLVideoElement) {
+  private startFallbackAutoHide = (video: HTMLVideoElement): void => {
     const bump = () => {
       this.showFallbackToggle();
       if (this.fallbackHideTimer) window.clearTimeout(this.fallbackHideTimer);
@@ -302,9 +317,9 @@ export class AreenaUI {
     }
 
     bump();
-  }
+  };
 
-  private stopFallbackAutoHide() {
+  private stopFallbackAutoHide = (): void => {
     if (this.fallbackHideTimer) {
       window.clearTimeout(this.fallbackHideTimer);
       this.fallbackHideTimer = null;
@@ -313,5 +328,5 @@ export class AreenaUI {
       this.toggleHost.style.opacity = "";
       this.toggleHost.style.transition = "";
     }
-  }
+  };
 }

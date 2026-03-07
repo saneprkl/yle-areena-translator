@@ -1,15 +1,18 @@
 import * as esbuild from "esbuild";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { createLogger } from "./src/global/logger";
+
+const log = createLogger("build");
 
 const dist = "dist";
 const staticDir = "static";
 const isWatch = process.argv.includes("--watch");
 
-async function copyStatic() {
+const copyStatic = async (): Promise<void> => {
   await fs.mkdir(dist, { recursive: true });
 
-  async function copyDir(src: string, dest: string) {
+  const copyDir = async (src: string, dest: string): Promise<void> => {
     await fs.mkdir(dest, { recursive: true });
     const entries = await fs.readdir(src, { withFileTypes: true });
     await Promise.all(
@@ -18,41 +21,39 @@ async function copyStatic() {
         const to = path.join(dest, e.name);
         if (e.isDirectory()) return copyDir(from, to);
         if (e.isFile()) return fs.copyFile(from, to);
-      })
+      }),
     );
-  }
+  };
 
   await copyDir(staticDir, dist);
-}
+};
 
-async function buildOnce() {
+const buildOnce = async (): Promise<void> => {
   await copyStatic();
 
-  // 1) Background service worker as ESM (MV3 "type":"module")
   await esbuild.build({
     entryPoints: { background: "src/background/index.ts" },
     outdir: dist,
     bundle: true,
     format: "esm",
     target: ["chrome114"],
-    sourcemap: true
+    sourcemap: true,
   });
 
-  // 2) Content script + options page as single-file bundles
   await esbuild.build({
     entryPoints: {
       content: "src/content/index.ts",
-      options: "src/ui/options/index.ts"
+      options: "src/ui/options/index.ts",
     },
     outdir: dist,
     bundle: true,
     format: "iife",
     target: ["chrome114"],
-    sourcemap: true
+    sourcemap: true,
   });
-}
+};
 
-async function watch() {
+const watch = async (): Promise<void> => {
   await copyStatic();
 
   const bg = await esbuild.context({
@@ -61,35 +62,35 @@ async function watch() {
     bundle: true,
     format: "esm",
     target: ["chrome114"],
-    sourcemap: true
+    sourcemap: true,
   });
 
   const rest = await esbuild.context({
     entryPoints: {
       content: "src/content/index.ts",
-      options: "src/ui/options/index.ts"
+      options: "src/ui/options/index.ts",
     },
     outdir: dist,
     bundle: true,
     format: "iife",
     target: ["chrome114"],
-    sourcemap: true
+    sourcemap: true,
   });
 
   await bg.watch();
   await rest.watch();
-  console.log("Watching… build output in /dist");
-}
+  log.info("Watching… build output in /dist");
+};
 
-(async () => {
-  try {
-    if (isWatch) await watch();
-    else {
-      await buildOnce();
-      console.log("Built to /dist");
-    }
-  } catch (e) {
-    console.error(e);
-    process.exit(1);
+const main = async (): Promise<void> => {
+  if (isWatch) await watch();
+  else {
+    await buildOnce();
+    log.info("Built to /dist");
   }
-})();
+};
+
+void main().catch((e: unknown) => {
+  log.error("Build failed", e);
+  process.exit(1);
+});

@@ -1,22 +1,13 @@
-import { TranslateRequestPayload, UsageResponse } from "../../global/types";
+import type {
+  TranslateRequestPayload,
+  UsageResponse,
+} from "../../global/types";
 import { createLogger, initLogging } from "../../global/logger";
 
 const log = createLogger("deepl/http");
 void initLogging();
 
-function safeSnippet(s: string, max = 400) {
-  return s.length > max ? s.slice(0, max) + "…" : s;
-}
-
-async function readBody(resp: Response): Promise<string> {
-  try {
-    return await resp.text();
-  } catch {
-    return "";
-  }
-}
-
-export function normalizeOriginFromEndpoint(endpoint?: string) {
+export const normalizeOriginFromEndpoint = (endpoint?: string): string => {
   const fallback = "https://api-free.deepl.com";
   if (!endpoint) return fallback;
 
@@ -26,13 +17,13 @@ export function normalizeOriginFromEndpoint(endpoint?: string) {
   } catch {
     return fallback;
   }
-}
+};
 
-export async function deeplTranslateHttp(
+export const deeplTranslateHttp = async (
   origin: string,
   key: string,
-  payload: TranslateRequestPayload
-): Promise<string[]> {
+  payload: TranslateRequestPayload,
+): Promise<string[]> => {
   const started = Date.now();
 
   log.debug("POST /v2/translate -> sending", {
@@ -49,16 +40,16 @@ export async function deeplTranslateHttp(
     target_lang: payload.targetLang,
     split_sentences: "nonewlines",
     preserve_formatting: true,
-    ...(payload.sourceLang ? { source_lang: payload.sourceLang } : {})
+    ...(payload.sourceLang ? { source_lang: payload.sourceLang } : {}),
   };
 
   const resp = await fetch(`${origin}/v2/translate`, {
     method: "POST",
     headers: {
       Authorization: `DeepL-Auth-Key ${key}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
   });
 
   const ms = Date.now() - started;
@@ -77,12 +68,15 @@ export async function deeplTranslateHttp(
 
   const json = (await resp.json()) as { translations: { text: string }[] };
   return json.translations.map((t) => t.text);
-}
+};
 
-export async function deeplUsageHttp(origin: string, key: string): Promise<UsageResponse> {
+export const deeplUsageHttp = async (
+  origin: string,
+  key: string,
+): Promise<UsageResponse> => {
   const resp = await fetch(`${origin}/v2/usage`, {
     method: "GET",
-    headers: { Authorization: `DeepL-Auth-Key ${key}` }
+    headers: { Authorization: `DeepL-Auth-Key ${key}` },
   });
 
   if (!resp.ok) {
@@ -91,4 +85,4 @@ export async function deeplUsageHttp(origin: string, key: string): Promise<Usage
   }
 
   return (await resp.json()) as UsageResponse;
-}
+};

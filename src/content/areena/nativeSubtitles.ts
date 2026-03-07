@@ -1,9 +1,15 @@
+import { createLogger, initLogging } from "../../global/logger";
+
+const log = createLogger("content/areena/nativesubtitles");
+void initLogging();
+
 export class NativeSubtitleHider {
-  private savedTrackModes: Array<{ track: TextTrack; mode: TextTrackMode }> = [];
+  private savedTrackModes: Array<{ track: TextTrack; mode: TextTrackMode }> =
+    [];
   private enforceHiddenTimer: number | null = null;
   private hideNativeStyleEl: HTMLStyleElement | null = null;
 
-  hide(video: HTMLVideoElement) {
+  hide = (video: HTMLVideoElement): void => {
     this.savedTrackModes = [];
     for (const t of Array.from(video.textTracks ?? [])) {
       if (t.kind === "subtitles" || t.kind === "captions") {
@@ -41,9 +47,9 @@ export class NativeSubtitleHider {
     }
 
     document.documentElement.classList.add("areena-deepl-hide-native-subs");
-  }
+  };
 
-  restore() {
+  restore = (): void => {
     if (this.enforceHiddenTimer) {
       window.clearInterval(this.enforceHiddenTimer);
       this.enforceHiddenTimer = null;
@@ -52,12 +58,14 @@ export class NativeSubtitleHider {
     for (const { track, mode } of this.savedTrackModes) {
       try {
         track.mode = mode;
-      } catch {}
+      } catch (e: unknown) {
+        log.warn("Failed to restore native subtitle track mode", e);
+      }
     }
     this.savedTrackModes = [];
 
     document.documentElement.classList.remove("areena-deepl-hide-native-subs");
     this.hideNativeStyleEl?.remove();
     this.hideNativeStyleEl = null;
-  }
+  };
 }

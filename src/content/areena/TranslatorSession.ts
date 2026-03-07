@@ -4,14 +4,14 @@ import { loadCache, queueSaveCache } from "./cache";
 import { deeplTranslate } from "./deeplBridge";
 import { NativeSubtitleHider } from "./nativeSubtitles";
 import { getCueText, pickSubtitleTrack } from "./tracks";
-import { AreenaUI } from "./ui/AreenaUI";
+import type { AreenaUI } from "./ui/AreenaUI";
 
 export class TranslatorSession {
   private running = false;
   private translationDisabled = false;
 
   private track: TextTrack | null = null;
-  private prevOnCueChange: ((this: TextTrack, ev: Event) => any) | null = null;
+  private prevOnCueChange: ((this: TextTrack, ev: Event) => void) | null = null;
   private prevTrackMode: TextTrackMode | null = null;
 
   private cache: Map<string, string> = new Map();
@@ -22,7 +22,6 @@ export class TranslatorSession {
   private renderInFlight = false;
   private renderQueued = false;
 
-  // NEW: track watching / attach control
   private tracksList: TextTrackList | null = null;
   private tracksHandler: (() => void) | null = null;
   private tracksPoll: number | null = null;
@@ -30,28 +29,28 @@ export class TranslatorSession {
   private attaching = false;
   private attachQueued = false;
 
-  // NEW: delayed hint so it doesn't flash incorrectly
   private missingHintTimer: number | null = null;
   private showingMissingHint = false;
 
   constructor(
     private video: HTMLVideoElement,
     private targetLang: string,
-    private ui: AreenaUI
+    private ui: AreenaUI,
   ) {}
 
-  async start() {
+  start = async (): Promise<void> => {
     this.running = true;
     this.translationDisabled = false;
 
     this.hider.hide(this.video);
 
-    // Start watching tracks immediately; attach when available.
     this.installTrackWatchers();
     this.requestAttachTrack();
-  }
 
-  stop() {
+    await Promise.resolve();
+  };
+
+  stop = (): void => {
     this.running = false;
 
     this.uninstallTrackWatchers();
@@ -61,9 +60,9 @@ export class TranslatorSession {
 
     this.ui.hideSubtitle();
     this.hider.restore();
-  }
+  };
 
-  private installTrackWatchers() {
+  private installTrackWatchers = (): void => {
     if (this.tracksList) return;
 
     const list = this.video.textTracks;
@@ -82,11 +81,11 @@ export class TranslatorSession {
     this.video.addEventListener("loadstart", handler, { passive: true });
     this.video.addEventListener("emptied", handler, { passive: true });
 
-    // Fallback poll (some players are weird about firing addtrack/change)
+    // Fallback poll
     this.tracksPoll = window.setInterval(handler, 500);
-  }
+  };
 
-  private uninstallTrackWatchers() {
+  private uninstallTrackWatchers = (): void => {
     if (!this.tracksList || !this.tracksHandler) return;
 
     const list = this.tracksList;
@@ -107,20 +106,24 @@ export class TranslatorSession {
 
     this.tracksList = null;
     this.tracksHandler = null;
-  }
+  };
 
-  private requestAttachTrack() {
+  private requestAttachTrack = (): void => {
     if (!this.running) return;
 
     // If our current track vanished (episode switch), detach it.
-    if (this.track && this.tracksList && !this.isTrackStillPresent(this.track, this.tracksList)) {
+    if (
+      this.track &&
+      this.tracksList &&
+      !this.isTrackStillPresent(this.track, this.tracksList)
+    ) {
       this.detachTrack();
     }
 
     const candidate = pickSubtitleTrack(this.video);
 
     if (!candidate) {
-      // Don’t claim “not found” immediately—just wait and re-check.
+      // Don’t claim "not found" immediately—just wait and re-check.
       this.scheduleMissingHint();
       return;
     }
@@ -129,16 +132,19 @@ export class TranslatorSession {
 
     if (candidate === this.track) return;
     void this.attachTrack(candidate);
-  }
+  };
 
-  private isTrackStillPresent(track: TextTrack, list: TextTrackList) {
+  private isTrackStillPresent = (
+    track: TextTrack,
+    list: TextTrackList,
+  ): boolean => {
     for (let i = 0; i < list.length; i++) {
       if (list[i] === track) return true;
     }
     return false;
-  }
+  };
 
-  private detachTrack() {
+  private detachTrack = (): void => {
     if (this.track) {
       this.track.oncuechange = this.prevOnCueChange;
       if (this.prevTrackMode) this.track.mode = this.prevTrackMode;
@@ -146,9 +152,9 @@ export class TranslatorSession {
     this.track = null;
     this.prevOnCueChange = null;
     this.prevTrackMode = null;
-  }
+  };
 
-  private async attachTrack(track: TextTrack) {
+  private attachTrack = async (track: TextTrack): Promise<void> => {
     if (!this.running) return;
 
     if (this.attaching) {
@@ -184,9 +190,9 @@ export class TranslatorSession {
         this.requestAttachTrack();
       }
     }
-  }
+  };
 
-  private scheduleMissingHint() {
+  private scheduleMissingHint = (): void => {
     if (this.missingHintTimer || this.showingMissingHint) return;
 
     this.missingHintTimer = window.setTimeout(() => {
@@ -194,11 +200,13 @@ export class TranslatorSession {
       if (!this.running || this.track) return;
 
       this.showingMissingHint = true;
-      this.ui.showSubtitle("Waiting for subtitles… (turn subtitles on in the player)");
+      this.ui.showSubtitle(
+        "Waiting for subtitles… (turn subtitles on in the player)",
+      );
     }, 1500);
-  }
+  };
 
-  private clearMissingHint() {
+  private clearMissingHint = (): void => {
     if (this.missingHintTimer) {
       window.clearTimeout(this.missingHintTimer);
       this.missingHintTimer = null;
@@ -207,9 +215,9 @@ export class TranslatorSession {
       this.showingMissingHint = false;
       this.ui.hideSubtitle();
     }
-  }
+  };
 
-  private async render() {
+  private render = async (): Promise<void> => {
     if (!this.running || !this.track) return;
 
     if (this.renderInFlight) {
@@ -236,7 +244,9 @@ export class TranslatorSession {
         return;
       }
 
-      const missing = Array.from(new Set(originals.filter((t) => !this.cache.has(t))));
+      const missing = Array.from(
+        new Set(originals.filter((t) => !this.cache.has(t))),
+      );
 
       if (missing.length) {
         try {
@@ -252,7 +262,9 @@ export class TranslatorSession {
         }
       }
 
-      this.ui.showSubtitle(originals.map((t) => this.cache.get(t) || t).join("\n"));
+      this.ui.showSubtitle(
+        originals.map((t) => this.cache.get(t) || t).join("\n"),
+      );
     } finally {
       this.renderInFlight = false;
       if (this.renderQueued) {
@@ -260,5 +272,5 @@ export class TranslatorSession {
         void this.render();
       }
     }
-  }
+  };
 }

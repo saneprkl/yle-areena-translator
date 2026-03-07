@@ -3,13 +3,17 @@ import { waitForVideo } from "./areena/video";
 
 import { TranslatorSession } from "./areena/TranslatorSession";
 import { AreenaUI } from "./areena/ui/AreenaUI";
+import { createLogger, initLogging } from "../global/logger";
+
+const log = createLogger("content/index");
+void initLogging();
 
 let mountedForVideo: HTMLVideoElement | null = null;
 let ui: AreenaUI | null = null;
 let session: TranslatorSession | null = null;
 let mounting = false;
 
-async function mountOrRemount() {
+const mountOrRemount = async (): Promise<void> => {
   if (mounting) return;
   mounting = true;
 
@@ -33,21 +37,23 @@ async function mountOrRemount() {
     const state = await loadState();
     ui.setToggleLabel(state.enabled, state.targetLang);
 
-    ui.setOnToggle(async () => {
-      const current = await loadState();
-      const next = { ...current, enabled: !current.enabled };
-      await saveState(next);
+    ui.setOnToggle(() => {
+      void (async () => {
+        const current = await loadState();
+        const next = { ...current, enabled: !current.enabled };
+        await saveState(next);
 
-      ui!.setToggleLabel(next.enabled, next.targetLang);
+        ui!.setToggleLabel(next.enabled, next.targetLang);
 
-      if (next.enabled) {
-        session?.stop();
-        session = new TranslatorSession(video, next.targetLang, ui!);
-        await session.start();
-      } else {
-        session?.stop();
-        ui!.hideSubtitle();
-      }
+        if (next.enabled) {
+          session?.stop();
+          session = new TranslatorSession(video, next.targetLang, ui!);
+          await session.start();
+        } else {
+          session?.stop();
+          ui!.hideSubtitle();
+        }
+      })();
     });
 
     if (state.enabled) {
@@ -59,12 +65,15 @@ async function mountOrRemount() {
   } finally {
     mounting = false;
   }
-}
+};
 
-const runMount = () =>
-  mountOrRemount().catch((err) => console.error("Translator mount failed: ", err));
+const runMount = (): void => {
+  void mountOrRemount().catch((err: unknown) =>
+    log.error("Translator mount failed", err),
+  );
+};
 
 const mo = new MutationObserver(runMount);
 mo.observe(document.documentElement, { childList: true, subtree: true });
 
-runMount();
+void runMount();

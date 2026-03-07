@@ -17,9 +17,9 @@ export const subtitleBoxStyle: Partial<CSSStyleDeclaration> = {
   fontSize: "42px",
   lineHeight: "1.35",
   fontWeight: "650",
-  textShadow: "0 2px 8px rgba(0,0,0,0.95)"
+  textShadow: "0 2px 8px rgba(0,0,0,0.95)",
 };
 
-export function applySubtitleBoxStyles(el: HTMLDivElement) {
+export const applySubtitleBoxStyles = (el: HTMLDivElement): void => {
   Object.assign(el.style, subtitleBoxStyle);
-}
+};

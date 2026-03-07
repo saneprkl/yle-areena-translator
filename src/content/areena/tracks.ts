@@ -1,11 +1,19 @@
-export function getCueText(cue: TextTrackCue): string {
-  const anyCue = cue as any;
-  return String(anyCue.text ?? "").trim();
-}
+export const getCueText = (cue: TextTrackCue): string => {
+  if ("text" in cue && typeof cue.text === "string") {
+    return cue.text.trim();
+  }
+  return "";
+};
 
-export function pickSubtitleTrack(video: HTMLVideoElement): TextTrack | null {
+export const pickSubtitleTrack = (
+  video: HTMLVideoElement,
+): TextTrack | null => {
   const tracks = Array.from(video.textTracks ?? []);
-  const candidates = tracks.filter((t) => t.kind === "subtitles" || t.kind === "captions");
-  const preferred = candidates.find((t) => t.language === "fi" || t.language === "sv");
+  const candidates = tracks.filter(
+    (t) => t.kind === "subtitles" || t.kind === "captions",
+  );
+  const preferred = candidates.find(
+    (t) => t.language === "fi" || t.language === "sv",
+  );
   return preferred ?? candidates[0] ?? null;
-}
+};

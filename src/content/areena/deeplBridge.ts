@@ -1,5 +1,8 @@
 import { sendDeeplTranslate } from "../../protocol/messages";
 
-export async function deeplTranslate(texts: string[], targetLang: string) {
+export const deeplTranslate = async (
+  texts: string[],
+  targetLang: string,
+): Promise<string[]> => {
   return sendDeeplTranslate({ texts, targetLang });
-}
+};

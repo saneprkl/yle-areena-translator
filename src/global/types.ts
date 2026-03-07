@@ -18,17 +18,15 @@ export type TranslateResponse =
   | { ok: true; translations: string[] }
   | { ok: false; error: string };
 
-export type UsageResponse =
-  | { character_count: number; character_limit: number }
-  | {
-      api_key_character_count?: number;
-      api_key_character_limit?: number;
-      character_count?: number;
-      character_limit?: number;
-      start_time?: string;
-      end_time?: string;
-      products?: any[];
-    };
+export type UsageResponse = {
+  character_count?: number;
+  character_limit?: number;
+  api_key_character_count?: number;
+  api_key_character_limit?: number;
+  start_time?: string;
+  end_time?: string;
+  products?: unknown[];
+};
 
 export type UsageWireResponse =
   | { ok: true; usage: UsageResponse }

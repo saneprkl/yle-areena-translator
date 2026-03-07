@@ -1,5 +1,7 @@
-import { STORAGE_DEEPL_ENDPOINT, STORAGE_DEEPL_KEY } from "../../global/constants";
-import type { Settings } from "../../global/types";
+import {
+  STORAGE_DEEPL_ENDPOINT,
+  STORAGE_DEEPL_KEY,
+} from "../../global/constants";
 import { sendDeeplUsage } from "../../protocol/messages";
 
 const keyEl = document.getElementById("key") as HTMLInputElement;
@@ -9,52 +11,64 @@ const clearKeyBtn = document.getElementById("clearKey") as HTMLButtonElement;
 const saveBtn = document.getElementById("save") as HTMLButtonElement;
 const saveStatus = document.getElementById("saveStatus") as HTMLDivElement;
 
-const refreshUsageBtn = document.getElementById("refreshUsage") as HTMLButtonElement;
+const refreshUsageBtn = document.getElementById(
+  "refreshUsage",
+) as HTMLButtonElement;
 const usageText = document.getElementById("usageText") as HTMLDivElement;
 
-function setSaveStatus(msg: string) {
+const setSaveStatus = (msg: string): void => {
   saveStatus.textContent = msg;
-  setTimeout(() => (saveStatus.textContent = ""), 2500);
-}
+  setTimeout(() => {
+    saveStatus.textContent = "";
+  }, 2500);
+};
 
-function fmt(n: number) {
+const fmt = (n: number): string => {
   return new Intl.NumberFormat().format(n);
-}
+};
 
-async function load() {
-  const { deeplKey, deeplEndpoint } = (await chrome.storage.sync.get([
+const load = async (): Promise<void> => {
+  const stored = await chrome.storage.sync.get([
     STORAGE_DEEPL_KEY,
-    STORAGE_DEEPL_ENDPOINT
-  ])) as Settings;
+    STORAGE_DEEPL_ENDPOINT,
+  ]);
 
-  keyEl.value = deeplKey ?? "";
-  endpointEl.value = deeplEndpoint ?? "https://api-free.deepl.com";
+  keyEl.value = typeof stored.deeplKey === "string" ? stored.deeplKey : "";
+  endpointEl.value =
+    typeof stored.deeplEndpoint === "string"
+      ? stored.deeplEndpoint
+      : "https://api-free.deepl.com";
   keyEl.type = showKeyEl.checked ? "text" : "password";
-}
+};
 
 showKeyEl.addEventListener("change", () => {
   keyEl.type = showKeyEl.checked ? "text" : "password";
 });
 
-clearKeyBtn.addEventListener("click", async () => {
-  keyEl.value = "";
-  await chrome.storage.sync.set({ [STORAGE_DEEPL_KEY]: "" });
-  setSaveStatus("Key cleared.");
-  usageText.textContent = "No key set.";
+clearKeyBtn.addEventListener("click", () => {
+  void (async () => {
+    keyEl.value = "";
+    await chrome.storage.sync.set({ [STORAGE_DEEPL_KEY]: "" });
+    setSaveStatus("Key cleared.");
+    usageText.textContent = "No key set.";
+  })();
 });
 
-saveBtn.addEventListener("click", async () => {
-  await chrome.storage.sync.set({
-    [STORAGE_DEEPL_KEY]: keyEl.value.trim(),
-    [STORAGE_DEEPL_ENDPOINT]: endpointEl.value
-  });
-  setSaveStatus("Saved.");
-  await refreshUsage();
+saveBtn.addEventListener("click", () => {
+  void (async () => {
+    await chrome.storage.sync.set({
+      [STORAGE_DEEPL_KEY]: keyEl.value.trim(),
+      [STORAGE_DEEPL_ENDPOINT]: endpointEl.value,
+    });
+    setSaveStatus("Saved.");
+    await refreshUsage();
+  })();
 });
 
-async function refreshUsage() {
-  const { deeplKey } = (await chrome.storage.sync.get([STORAGE_DEEPL_KEY])) as Settings;
-  if (!deeplKey) {
+const refreshUsage = async (): Promise<void> => {
+  const stored = await chrome.storage.sync.get([STORAGE_DEEPL_KEY]);
+
+  if (!stored.deeplKey) {
     usageText.textContent = "No key set.";
     return;
   }
@@ -65,27 +79,31 @@ async function refreshUsage() {
     const u = await sendDeeplUsage();
 
     const used =
-      typeof (u as any).api_key_character_count === "number"
-        ? (u as any).api_key_character_count
-        : (u as any).character_count;
+      typeof u.api_key_character_count === "number"
+        ? u.api_key_character_count
+        : u.character_count;
 
     const limit =
-      typeof (u as any).api_key_character_limit === "number" && (u as any).api_key_character_limit > 0
-        ? (u as any).api_key_character_limit
-        : (u as any).character_limit;
+      typeof u.api_key_character_limit === "number" &&
+      u.api_key_character_limit > 0
+        ? u.api_key_character_limit
+        : u.character_limit;
 
     if (typeof used === "number" && typeof limit === "number") {
       usageText.textContent = `Characters used: ${fmt(used)} / ${fmt(limit)} (${Math.round(
-        (used / limit) * 100
+        (used / limit) * 100,
       )}%)`;
     } else {
-      usageText.textContent = "Usage data returned, but fields were unexpected.";
+      usageText.textContent =
+        "Usage data returned, but fields were unexpected.";
     }
-  } catch (e: any) {
-    usageText.textContent = `Usage error: ${String(e?.message || e)}`;
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+    usageText.textContent = `Usage error: ${message}`;
   }
-}
+};
 
 refreshUsageBtn.addEventListener("click", () => void refreshUsage());
 
-load().then(() => void refreshUsage());
+void load().then(() => refreshUsage());

@@ -16,25 +16,35 @@ export interface Logger {
   get(): LogSettings;
 }
 
-const levelRank: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
+const levelRank: Record<LogLevel, number> = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  debug: 3,
+};
 
 const DEFAULT_SETTINGS: LogSettings = {
-  enabled: true,   
+  enabled: true,
   level: "debug",
 };
 
-let cache: LogSettings = { ...DEFAULT_SETTINGS };
+const cache: LogSettings = { ...DEFAULT_SETTINGS };
 let initialized = false;
 
-export async function initLogging(): Promise<void> {
+export const initLogging = async (): Promise<void> => {
   if (initialized) return;
   initialized = true;
 
   // Try using saved settings
   try {
-    const stored = await chrome.storage.local.get([STORAGE_LOG_ENABLED, STORAGE_LOG_LEVEL]);
+    const stored = await chrome.storage.local.get([
+      STORAGE_LOG_ENABLED,
+      STORAGE_LOG_LEVEL,
+    ]);
     cache.enabled =
-      typeof stored[STORAGE_LOG_ENABLED] === "boolean" ? stored[STORAGE_LOG_ENABLED] : cache.enabled;
+      typeof stored[STORAGE_LOG_ENABLED] === "boolean"
+        ? stored[STORAGE_LOG_ENABLED]
+        : cache.enabled;
 
     const lvl = stored[STORAGE_LOG_LEVEL] as LogLevel | undefined;
     if (lvl && lvl in levelRank) cache.level = lvl;
@@ -52,62 +62,85 @@ export async function initLogging(): Promise<void> {
     }
     if (STORAGE_LOG_LEVEL in changes) {
       const v = changes[STORAGE_LOG_LEVEL]?.newValue;
-      if (typeof v === "string" && (v as LogLevel) in levelRank) cache.level = v as LogLevel;
+      if (typeof v === "string" && (v as LogLevel) in levelRank)
+        cache.level = v as LogLevel;
     }
   });
-}
+};
 
-function shouldLog(level: LogLevel): boolean {
+const shouldLog = (level: LogLevel): boolean => {
   if (!cache.enabled) return false;
   return levelRank[level] <= levelRank[cache.level];
-}
+};
 
-function safeMeta(meta: unknown): unknown {
+const safeMeta = (meta: unknown): unknown => {
   // Remove secrets from log
   if (!meta || typeof meta !== "object") return meta;
   try {
-    return JSON.parse(
+    const sanitized: unknown = JSON.parse(
       JSON.stringify(meta, (key, value) => {
         const k = key.toLowerCase();
-        if (k.includes("key") || k.includes("token") || k.includes("authorization")) return "[REDACTED]";
-        return value;
-      })
+        if (
+          k.includes("key") ||
+          k.includes("token") ||
+          k.includes("authorization")
+        )
+          return "[REDACTED]";
+
+        const passthrough: unknown = value;
+        return passthrough;
+      }),
     );
+    return sanitized;
   } catch {
     return "[Unserializable meta]";
   }
-}
+};
 
-function emit(level: LogLevel, scope: string, message: string, meta?: unknown) {
+const emit = (
+  level: LogLevel,
+  scope: string,
+  message: string,
+  meta?: unknown,
+): void => {
   if (!shouldLog(level)) return;
 
   const prefix = `[ext:${scope}]`;
   const m = meta !== undefined ? safeMeta(meta) : undefined;
 
   const fn =
-    level === "error" ? console.error :
-    level === "warn"  ? console.warn  :
-    level === "info"  ? console.info  :
-    console.debug;
+    level === "error"
+      ? console.error
+      : level === "warn"
+        ? console.warn
+        : level === "info"
+          ? console.info
+          : console.debug;
 
-  m !== undefined ? fn(prefix, message, m) : fn(prefix, message);
-}
+  if (m !== undefined) {
+    fn(prefix, message, m);
+  } else {
+    fn(prefix, message);
+  }
+};
 
-export function createLogger(scope: string): Logger {
+export const createLogger = (scope: string): Logger => {
   return {
     error: (msg, meta) => emit("error", scope, msg, meta),
-    warn:  (msg, meta) => emit("warn", scope, msg, meta),
-    info:  (msg, meta) => emit("info", scope, msg, meta),
+    warn: (msg, meta) => emit("warn", scope, msg, meta),
+    info: (msg, meta) => emit("info", scope, msg, meta),
     debug: (msg, meta) => emit("debug", scope, msg, meta),
 
     get: () => ({ ...cache }),
 
     set: async (settings) => {
       const next: Partial<Record<string, unknown>> = {};
-      if (typeof settings.enabled === "boolean") next[STORAGE_LOG_ENABLED] = settings.enabled;
-      if (settings.level && settings.level in levelRank) next[STORAGE_LOG_LEVEL] = settings.level;
+      if (typeof settings.enabled === "boolean")
+        next[STORAGE_LOG_ENABLED] = settings.enabled;
+      if (settings.level && settings.level in levelRank)
+        next[STORAGE_LOG_LEVEL] = settings.level;
       await chrome.storage.local.set(next);
       // cache updates via onChanged listener
     },
   };
-}
+};
