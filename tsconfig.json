@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "types": ["chrome", "node"]
   },
-  "include": ["src", "scripts", "build.ts"]
+  "include": ["src", "scripts", "build.ts", "scripts"]
 }
