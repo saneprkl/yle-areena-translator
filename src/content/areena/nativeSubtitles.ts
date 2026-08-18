@@ -10,6 +10,17 @@ export class NativeSubtitleHider {
   private hideNativeStyleEl: HTMLStyleElement | null = null;
 
   hide = (video: HTMLVideoElement): void => {
+    const tracks = Array.from(video.textTracks ?? []).map((t, i) => ({
+      index: i,
+      kind: t.kind,
+      label: t.label,
+      language: t.language,
+      mode: t.mode,
+      cues: t.cues?.length ?? 0,
+      activeCues: t.activeCues?.length ?? 0,
+    }));
+    log.info("hide(): current text tracks", tracks);
+
     this.savedTrackModes = [];
     for (const t of Array.from(video.textTracks ?? [])) {
       if (t.kind === "subtitles" || t.kind === "captions") {
@@ -22,7 +33,14 @@ export class NativeSubtitleHider {
     this.enforceHiddenTimer = window.setInterval(() => {
       for (const t of Array.from(video.textTracks ?? [])) {
         if (t.kind === "subtitles" || t.kind === "captions") {
-          if (t.mode !== "hidden") t.mode = "hidden";
+          if (t.mode !== "hidden") {
+            log.debug("forcing track to hidden", {
+              label: t.label,
+              language: t.language,
+              fromMode: t.mode,
+            });
+            t.mode = "hidden";
+          }
         }
       }
     }, 500);

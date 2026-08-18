@@ -20,6 +20,12 @@ const mountOrRemount = async (): Promise<void> => {
   try {
     const video = await waitForVideo();
 
+    log.info("mountOrRemount()", {
+      sameVideo: mountedForVideo === video,
+      currentSrc: video.currentSrc || null,
+      textTrackCount: video.textTracks.length,
+    });
+
     if (mountedForVideo === video) {
       ui?.reattachToggle(video);
       return;
@@ -35,6 +41,7 @@ const mountOrRemount = async (): Promise<void> => {
     ui.mount(video);
 
     const state = await loadState();
+    log.info("loaded state", state);
     ui.setToggleLabel(state.enabled, state.targetLang);
 
     ui.setOnToggle(() => {
@@ -43,6 +50,7 @@ const mountOrRemount = async (): Promise<void> => {
         const next = { ...current, enabled: !current.enabled };
         await saveState(next);
 
+        log.info("toggle -> new state", next);
         ui!.setToggleLabel(next.enabled, next.targetLang);
 
         if (next.enabled) {
