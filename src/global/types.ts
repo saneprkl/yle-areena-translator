@@ -1,11 +1,15 @@
+export type TranslationProvider = "deepl" | "google";
+
 export type Settings = {
   deeplKey?: string;
   deeplEndpoint?: string; // "https://api-free.deepl.com" or "https://api.deepl.com"
+  googleKey?: string;
 };
 
 export type ToggleState = {
   enabled: boolean;
   targetLang: string;
+  provider: TranslationProvider;
 };
 
 export type TranslateRequestPayload = {

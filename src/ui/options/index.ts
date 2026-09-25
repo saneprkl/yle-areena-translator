@@ -1,13 +1,27 @@
 import {
   STORAGE_DEEPL_ENDPOINT,
   STORAGE_DEEPL_KEY,
+  STORAGE_GOOGLE_KEY,
 } from "../../global/constants";
 import { sendDeeplUsage } from "../../protocol/messages";
 
-const keyEl = document.getElementById("key") as HTMLInputElement;
+const deeplKeyEl = document.getElementById("deeplKey") as HTMLInputElement;
 const endpointEl = document.getElementById("endpoint") as HTMLSelectElement;
-const showKeyEl = document.getElementById("showKey") as HTMLInputElement;
-const clearKeyBtn = document.getElementById("clearKey") as HTMLButtonElement;
+const showDeeplKeyEl = document.getElementById(
+  "showDeeplKey",
+) as HTMLInputElement;
+const clearDeeplKeyBtn = document.getElementById(
+  "clearDeeplKey",
+) as HTMLButtonElement;
+
+const googleKeyEl = document.getElementById("googleKey") as HTMLInputElement;
+const showGoogleKeyEl = document.getElementById(
+  "showGoogleKey",
+) as HTMLInputElement;
+const clearGoogleKeyBtn = document.getElementById(
+  "clearGoogleKey",
+) as HTMLButtonElement;
+
 const saveBtn = document.getElementById("save") as HTMLButtonElement;
 const saveStatus = document.getElementById("saveStatus") as HTMLDivElement;
 
@@ -18,6 +32,7 @@ const usageText = document.getElementById("usageText") as HTMLDivElement;
 
 const setSaveStatus = (msg: string): void => {
   saveStatus.textContent = msg;
+
   setTimeout(() => {
     saveStatus.textContent = "";
   }, 2500);
@@ -31,35 +46,64 @@ const load = async (): Promise<void> => {
   const stored = await chrome.storage.sync.get([
     STORAGE_DEEPL_KEY,
     STORAGE_DEEPL_ENDPOINT,
+    STORAGE_GOOGLE_KEY,
   ]);
 
-  keyEl.value = typeof stored.deeplKey === "string" ? stored.deeplKey : "";
+  deeplKeyEl.value = typeof stored.deeplKey === "string" ? stored.deeplKey : "";
+
   endpointEl.value =
     typeof stored.deeplEndpoint === "string"
       ? stored.deeplEndpoint
       : "https://api-free.deepl.com";
-  keyEl.type = showKeyEl.checked ? "text" : "password";
+
+  googleKeyEl.value =
+    typeof stored.googleKey === "string" ? stored.googleKey : "";
+
+  deeplKeyEl.type = showDeeplKeyEl.checked ? "text" : "password";
+  googleKeyEl.type = showGoogleKeyEl.checked ? "text" : "password";
 };
 
-showKeyEl.addEventListener("change", () => {
-  keyEl.type = showKeyEl.checked ? "text" : "password";
+showDeeplKeyEl.addEventListener("change", () => {
+  deeplKeyEl.type = showDeeplKeyEl.checked ? "text" : "password";
 });
 
-clearKeyBtn.addEventListener("click", () => {
+showGoogleKeyEl.addEventListener("change", () => {
+  googleKeyEl.type = showGoogleKeyEl.checked ? "text" : "password";
+});
+
+clearDeeplKeyBtn.addEventListener("click", () => {
   void (async () => {
-    keyEl.value = "";
-    await chrome.storage.sync.set({ [STORAGE_DEEPL_KEY]: "" });
-    setSaveStatus("Key cleared.");
-    usageText.textContent = "No key set.";
+    deeplKeyEl.value = "";
+
+    await chrome.storage.sync.set({
+      [STORAGE_DEEPL_KEY]: "",
+    });
+
+    setSaveStatus("DeepL key cleared.");
+    usageText.textContent = "No DeepL key set.";
+  })();
+});
+
+clearGoogleKeyBtn.addEventListener("click", () => {
+  void (async () => {
+    googleKeyEl.value = "";
+
+    await chrome.storage.sync.set({
+      [STORAGE_GOOGLE_KEY]: "",
+    });
+
+    setSaveStatus("Google key cleared.");
   })();
 });
 
 saveBtn.addEventListener("click", () => {
   void (async () => {
     await chrome.storage.sync.set({
-      [STORAGE_DEEPL_KEY]: keyEl.value.trim(),
+      [STORAGE_DEEPL_KEY]: deeplKeyEl.value.trim(),
       [STORAGE_DEEPL_ENDPOINT]: endpointEl.value,
+      [STORAGE_GOOGLE_KEY]: googleKeyEl.value.trim(),
     });
+
     setSaveStatus("Saved.");
     await refreshUsage();
   })();
@@ -69,7 +113,7 @@ const refreshUsage = async (): Promise<void> => {
   const stored = await chrome.storage.sync.get([STORAGE_DEEPL_KEY]);
 
   if (!stored.deeplKey) {
-    usageText.textContent = "No key set.";
+    usageText.textContent = "No DeepL key set.";
     return;
   }
 
@@ -100,6 +144,7 @@ const refreshUsage = async (): Promise<void> => {
   } catch (e: unknown) {
     const message =
       e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+
     usageText.textContent = `Usage error: ${message}`;
   }
 };

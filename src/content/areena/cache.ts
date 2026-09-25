@@ -6,15 +6,22 @@ type CacheRecord = {
   map: Record<string, string>;
 };
 
-const cacheKey = (videoId: string, targetLang: string): string => {
-  return `${CACHE_PREFIX}:v${CACHE_VERSION}:${videoId}:${targetLang}`;
+export type TranslationProvider = "deepl" | "google";
+
+const cacheKey = (
+  videoId: string,
+  targetLang: string,
+  provider: TranslationProvider,
+): string => {
+  return `${CACHE_PREFIX}:v${CACHE_VERSION}:${provider}:${videoId}:${targetLang}`;
 };
 
 export const loadCache = async (
   videoId: string,
   targetLang: string,
+  provider: TranslationProvider,
 ): Promise<Map<string, string>> => {
-  const key = cacheKey(videoId, targetLang);
+  const key = cacheKey(videoId, targetLang, provider);
   const obj = await chrome.storage.local.get([key]);
   const rec = obj[key] as CacheRecord | undefined;
 
@@ -29,12 +36,13 @@ export const queueSaveCache = (
   videoId: string,
   targetLang: string,
   cache: Map<string, string>,
+  provider: TranslationProvider,
 ): void => {
   if (saveTimer) window.clearTimeout(saveTimer);
 
   saveTimer = window.setTimeout(() => {
     void (async () => {
-      const key = cacheKey(videoId, targetLang);
+      const key = cacheKey(videoId, targetLang, provider);
 
       const MAX_ENTRIES = 1200;
       const entries = Array.from(cache.entries());

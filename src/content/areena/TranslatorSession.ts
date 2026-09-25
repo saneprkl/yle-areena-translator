@@ -2,6 +2,8 @@ import { normalize } from "./utils";
 import { getAreenaVideoId } from "./video";
 import { loadCache, queueSaveCache } from "./cache";
 import { deeplTranslate } from "./deeplBridge";
+import { googleTranslate } from "./googleBridge";
+import type { TranslationProvider } from "../../global/types";
 import { NativeSubtitleHider } from "./nativeSubtitles";
 import { getCueText, pickSubtitleTrack } from "./tracks";
 import type { AreenaUI } from "./ui/AreenaUI";
@@ -39,6 +41,7 @@ export class TranslatorSession {
   constructor(
     private video: HTMLVideoElement,
     private targetLang: string,
+    private provider: TranslationProvider,
     private ui: AreenaUI,
   ) {}
 
@@ -49,6 +52,7 @@ export class TranslatorSession {
     log.info("start()", {
       videoId: this.videoId,
       targetLang: this.targetLang,
+      provider: this.provider,
       textTrackCount: this.video.textTracks.length,
       currentSrc: this.video.currentSrc || null,
     });
@@ -67,6 +71,7 @@ export class TranslatorSession {
     log.info("stop()", {
       videoId: this.videoId,
       targetLang: this.targetLang,
+      provider: this.provider,
     });
 
     this.running = false;
@@ -92,6 +97,14 @@ export class TranslatorSession {
     }));
 
     log.info(`tracks @ ${where}`, tracks);
+  };
+
+  private translate = async (texts: string[]): Promise<string[]> => {
+    if (this.provider === "google") {
+      return googleTranslate(texts, this.targetLang);
+    }
+
+    return deeplTranslate(texts, this.targetLang);
   };
 
   private installTrackWatchers = (): void => {
@@ -232,9 +245,18 @@ export class TranslatorSession {
       const newVideoId = getAreenaVideoId();
       if (newVideoId !== this.videoId) {
         this.videoId = newVideoId;
-        this.cache = await loadCache(this.videoId, this.targetLang);
+
+        this.cache = await loadCache(
+          this.videoId,
+          this.targetLang,
+          this.provider,
+        );
       } else if (!this.cache.size) {
-        this.cache = await loadCache(this.videoId, this.targetLang);
+        this.cache = await loadCache(
+          this.videoId,
+          this.targetLang,
+          this.provider,
+        );
       }
 
       this.prevOnCueChange = track.oncuechange;
@@ -338,23 +360,30 @@ export class TranslatorSession {
 
       if (missing.length) {
         try {
-          log.info("calling deeplTranslate()", {
+          log.info("calling translation provider", {
+            provider: this.provider,
             targetLang: this.targetLang,
             missing,
           });
 
-          const translated = await deeplTranslate(missing, this.targetLang);
+          const translated = await this.translate(missing);
 
-          log.info("deeplTranslate() returned", {
+          log.info("translation provider returned", {
+            provider: this.provider,
             translated,
           });
 
           for (let i = 0; i < missing.length; i++) {
             this.cache.set(missing[i], translated[i] ?? "");
           }
-          queueSaveCache(this.videoId, this.targetLang, this.cache);
+          queueSaveCache(
+            this.videoId,
+            this.targetLang,
+            this.cache,
+            this.provider,
+          );
         } catch (err: unknown) {
-          log.error("deeplTranslate() failed", err);
+          log.error(`${this.provider} translation failed`, err);
           this.translationDisabled = true;
           this.ui.showSubtitle(originals.join("\n"));
           return;

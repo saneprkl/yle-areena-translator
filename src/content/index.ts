@@ -41,31 +41,90 @@ const mountOrRemount = async (): Promise<void> => {
     ui.mount(video);
 
     const state = await loadState();
+
     log.info("loaded state", state);
+
     ui.setToggleLabel(state.enabled, state.targetLang);
+    ui.setProvider(state.provider);
 
     ui.setOnToggle(() => {
       void (async () => {
         const current = await loadState();
-        const next = { ...current, enabled: !current.enabled };
+
+        const next = {
+          ...current,
+          enabled: !current.enabled,
+        };
+
         await saveState(next);
 
         log.info("toggle -> new state", next);
+
         ui!.setToggleLabel(next.enabled, next.targetLang);
 
         if (next.enabled) {
           session?.stop();
-          session = new TranslatorSession(video, next.targetLang, ui!);
+
+          session = new TranslatorSession(
+            video,
+            next.targetLang,
+            next.provider,
+            ui!,
+          );
+
           await session.start();
         } else {
           session?.stop();
+          session = null;
           ui!.hideSubtitle();
         }
       })();
     });
 
+    ui.setOnProviderChange((provider) => {
+      void (async () => {
+        const current = await loadState();
+
+        if (current.provider === provider) {
+          return;
+        }
+
+        const next = {
+          ...current,
+          provider,
+        };
+
+        await saveState(next);
+
+        log.info("provider -> new state", next);
+
+        ui!.setProvider(next.provider);
+
+        if (next.enabled) {
+          session?.stop();
+          session = null;
+          ui!.hideSubtitle();
+
+          session = new TranslatorSession(
+            video,
+            next.targetLang,
+            next.provider,
+            ui!,
+          );
+
+          await session.start();
+        }
+      })();
+    });
+
     if (state.enabled) {
-      session = new TranslatorSession(video, state.targetLang, ui);
+      session = new TranslatorSession(
+        video,
+        state.targetLang,
+        state.provider,
+        ui,
+      );
+
       await session.start();
     } else {
       ui.hideSubtitle();
@@ -82,6 +141,10 @@ const runMount = (): void => {
 };
 
 const mo = new MutationObserver(runMount);
-mo.observe(document.documentElement, { childList: true, subtree: true });
+
+mo.observe(document.documentElement, {
+  childList: true,
+  subtree: true,
+});
 
 void runMount();
