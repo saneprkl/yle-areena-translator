@@ -1,9 +1,12 @@
 import {
+  GOOGLE_MONTHLY_APP_LIMIT,
+  GOOGLE_MONTHLY_FREE_LIMIT,
   STORAGE_DEEPL_ENDPOINT,
   STORAGE_DEEPL_KEY,
   STORAGE_GOOGLE_KEY,
 } from "../../global/constants";
 import { sendDeeplUsage } from "../../protocol/messages";
+import { getGoogleUsage } from "../../services/google/usage";
 
 const deeplKeyEl = document.getElementById("deeplKey") as HTMLInputElement;
 const endpointEl = document.getElementById("endpoint") as HTMLSelectElement;
@@ -20,6 +23,14 @@ const showGoogleKeyEl = document.getElementById(
 ) as HTMLInputElement;
 const clearGoogleKeyBtn = document.getElementById(
   "clearGoogleKey",
+) as HTMLButtonElement;
+
+const googleUsageText = document.getElementById(
+  "googleUsageText",
+) as HTMLDivElement;
+
+const refreshGoogleUsageBtn = document.getElementById(
+  "refreshGoogleUsage",
 ) as HTMLButtonElement;
 
 const saveBtn = document.getElementById("save") as HTMLButtonElement;
@@ -105,7 +116,8 @@ saveBtn.addEventListener("click", () => {
     });
 
     setSaveStatus("Saved.");
-    await refreshUsage();
+
+    await Promise.all([refreshUsage(), refreshGoogleUsage()]);
   })();
 });
 
@@ -149,6 +161,33 @@ const refreshUsage = async (): Promise<void> => {
   }
 };
 
+const refreshGoogleUsage = async (): Promise<void> => {
+  try {
+    const usage = await getGoogleUsage();
+
+    const percentage = Math.round(
+      (usage.characterCount / GOOGLE_MONTHLY_APP_LIMIT) * 100,
+    );
+
+    googleUsageText.textContent =
+      `Characters used: ${fmt(usage.characterCount)} / ` +
+      `${fmt(GOOGLE_MONTHLY_APP_LIMIT)} (${percentage}%) ` +
+      `— ${usage.month}`;
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+
+    googleUsageText.textContent = `Usage error: ${message}`;
+  }
+};
+
 refreshUsageBtn.addEventListener("click", () => void refreshUsage());
 
-void load().then(() => refreshUsage());
+refreshGoogleUsageBtn.addEventListener(
+  "click",
+  () => void refreshGoogleUsage(),
+);
+
+void load().then(() => {
+  void Promise.all([refreshUsage(), refreshGoogleUsage()]);
+});

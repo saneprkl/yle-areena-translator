@@ -4,6 +4,11 @@ import {
   MSG_GOOGLE_TRANSLATE,
 } from "../protocol/messages";
 
+import {
+  ensureGoogleUsageAvailable,
+  recordGoogleUsage,
+} from "../services/google/usage";
+
 import type {
   TranslateRequestPayload,
   TranslateResponse,
@@ -124,7 +129,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       try {
         const { key } = await getGoogleSettingsOrThrow();
 
+        await ensureGoogleUsageAvailable(msg.payload.texts);
+
         const translations = await googleTranslateHttp(key, msg.payload);
+
+        await recordGoogleUsage(msg.payload.texts);
 
         const out: TranslateResponse = {
           ok: true,

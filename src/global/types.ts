@@ -35,3 +35,8 @@ export type UsageResponse = {
 export type UsageWireResponse =
   | { ok: true; usage: UsageResponse }
   | { ok: false; error: string };
+
+export type GoogleUsage = {
+  month: string;
+  characterCount: number;
+};

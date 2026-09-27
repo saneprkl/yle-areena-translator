@@ -9,3 +9,8 @@ export const CACHE_VERSION = 1;
 
 export const STORAGE_LOG_ENABLED = "logEnabled";
 export const STORAGE_LOG_LEVEL = "logLevel";
+
+export const STORAGE_GOOGLE_USAGE = "googleUsage";
+
+export const GOOGLE_MONTHLY_FREE_LIMIT = 500_000;
+export const GOOGLE_MONTHLY_APP_LIMIT = 450_000;

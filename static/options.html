@@ -127,6 +127,29 @@
       </div>
 
       <p class="small">Uses Google Cloud Translation Basic (v2).</p>
+
+      <div class="usageBox">
+        <div style="display: flex; gap: 10px; align-items: center">
+          <b style="flex: 1">Usage</b>
+
+          <button
+            id="refreshGoogleUsage"
+            type="button"
+            style="flex: 0 0 auto; width: auto; padding: 8px 10px"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div id="googleUsageText" class="small" style="margin-top: 8px">
+          No data yet.
+        </div>
+
+        <div class="small" style="margin-top: 6px">
+          Local safety limit: 450,000 characters/month. Google pricing includes
+          the first 500,000 characters/month for NMT at no charge.
+        </div>
+      </div>
     </div>
 
     <button id="save" type="button">Save</button>
