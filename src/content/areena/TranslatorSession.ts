@@ -1,8 +1,8 @@
 import { normalize } from "./utils";
 import { getAreenaVideoId } from "./video";
 import { loadCache, queueSaveCache } from "./cache";
-import { deeplTranslate } from "./deeplBridge";
-import { googleTranslate } from "./googleBridge";
+import { getTranslator } from "../../features/translation/translators";
+import type { Translator } from "../../features/translation/Translator";
 import type { TranslationProvider } from "../../global/types";
 import { NativeSubtitleHider } from "./nativeSubtitles";
 import { getCueText, pickSubtitleTrack } from "./tracks";
@@ -13,6 +13,7 @@ const log = createLogger("areena/TranslatorSession");
 void initLogging();
 
 export class TranslatorSession {
+  private readonly translator: Translator;
   private running = false;
   private translationDisabled = false;
 
@@ -43,7 +44,9 @@ export class TranslatorSession {
     private targetLang: string,
     private provider: TranslationProvider,
     private ui: AreenaUI,
-  ) {}
+  ) {
+    this.translator = getTranslator(provider);
+  }
 
   start = async (): Promise<void> => {
     this.running = true;
@@ -100,11 +103,7 @@ export class TranslatorSession {
   };
 
   private translate = async (texts: string[]): Promise<string[]> => {
-    if (this.provider === "google") {
-      return googleTranslate(texts, this.targetLang);
-    }
-
-    return deeplTranslate(texts, this.targetLang);
+    return this.translator.translate(texts, this.targetLang);
   };
 
   private installTrackWatchers = (): void => {
