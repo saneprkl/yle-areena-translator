@@ -1,11 +1,7 @@
 import type { TranslationProvider } from "../../global/types";
-import { deeplTranslate } from "../../content/areena/deeplBridge";
+import { deeplTranslator } from "./providers/deepl/DeepLTranslator";
 import { googleTranslator } from "./providers/google/GoogleTranslator";
 import type { Translator } from "./Translator";
-
-const deeplTranslator: Translator = {
-  translate: deeplTranslate,
-};
 
 export const getTranslator = (provider: TranslationProvider): Translator => {
   switch (provider) {
