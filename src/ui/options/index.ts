@@ -5,7 +5,7 @@ import {
   STORAGE_DEEPL_KEY,
   STORAGE_GOOGLE_KEY,
 } from "../../global/constants";
-import { sendDeeplUsage } from "../../protocol/messages";
+import { sendDeeplUsage } from "../../features/translation/providers/deepl/deeplMessages";
 import { getGoogleUsage } from "../../features/translation/providers/google/googleUsage";
 
 const deeplKeyEl = document.getElementById("deeplKey") as HTMLInputElement;

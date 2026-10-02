@@ -1,5 +1,5 @@
-import { sendDeeplTranslate } from "../../../../protocol/messages";
 import type { Translator } from "../../Translator";
+import { sendDeeplTranslate } from "./deeplMessages";
 
 export const deeplTranslator: Translator = {
   translate: async (

@@ -1,8 +1,8 @@
 import type {
   TranslateRequestPayload,
   UsageResponse,
-} from "../../global/types";
-import { createLogger, initLogging } from "../../global/logger";
+} from "../../../../global/types";
+import { createLogger, initLogging } from "../../../../global/logger";
 
 const log = createLogger("deepl/http");
 void initLogging();
@@ -31,7 +31,6 @@ export const deeplTranslateHttp = async (
     targetLang: payload.targetLang,
     sourceLang: payload.sourceLang ?? null,
     textCount: payload.texts.length,
-    // optional: sizes only, not content
     textLengths: payload.texts.map((t) => t.length),
   });
 
@@ -56,17 +55,27 @@ export const deeplTranslateHttp = async (
 
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
+
     log.warn("POST /v2/translate -> failed", {
       ms,
       status: resp.status,
       bodySnippet: t.slice(0, 200),
     });
+
     throw new Error(`DeepL translate HTTP ${resp.status}: ${t.slice(0, 200)}`);
   }
 
-  log.info("POST /v2/translate -> ok", { ms, status: resp.status });
+  log.info("POST /v2/translate -> ok", {
+    ms,
+    status: resp.status,
+  });
 
-  const json = (await resp.json()) as { translations: { text: string }[] };
+  const json = (await resp.json()) as {
+    translations: {
+      text: string;
+    }[];
+  };
+
   return json.translations.map((t) => t.text);
 };
 
@@ -76,11 +85,14 @@ export const deeplUsageHttp = async (
 ): Promise<UsageResponse> => {
   const resp = await fetch(`${origin}/v2/usage`, {
     method: "GET",
-    headers: { Authorization: `DeepL-Auth-Key ${key}` },
+    headers: {
+      Authorization: `DeepL-Auth-Key ${key}`,
+    },
   });
 
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
+
     throw new Error(`DeepL usage HTTP ${resp.status}: ${t.slice(0, 200)}`);
   }
 

@@ -1,7 +1,10 @@
-import { STORAGE_DEEPL_ENDPOINT, STORAGE_DEEPL_KEY } from "../global/constants";
-import { normalizeOriginFromEndpoint } from "../services/deepl/client";
+import {
+  STORAGE_DEEPL_ENDPOINT,
+  STORAGE_DEEPL_KEY,
+} from "../../../../global/constants";
+import { normalizeOriginFromEndpoint } from "./deeplClient";
 
-export const getSettingsOrThrow = async (): Promise<{
+export const getDeeplSettingsOrThrow = async (): Promise<{
   key: string;
   origin: string;
 }> => {
