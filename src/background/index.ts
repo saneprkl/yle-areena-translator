@@ -1,26 +1,15 @@
+import { MSG_DEEPL_TRANSLATE, MSG_DEEPL_USAGE } from "../protocol/messages";
 import {
-  MSG_DEEPL_TRANSLATE,
-  MSG_DEEPL_USAGE,
-  MSG_GOOGLE_TRANSLATE,
-} from "../protocol/messages";
-
-import {
-  ensureGoogleUsageAvailable,
-  recordGoogleUsage,
-} from "../services/google/usage";
-
+  handleGoogleTranslateRequest,
+  isGoogleTranslateMessage,
+} from "../features/translation/providers/google/googleMessages";
 import type {
   TranslateRequestPayload,
   TranslateResponse,
   UsageWireResponse,
 } from "../global/types";
-
-import { getSettingsOrThrow, getGoogleSettingsOrThrow } from "./settings";
-
+import { getSettingsOrThrow } from "./settings";
 import { deeplTranslateHttp, deeplUsageHttp } from "../services/deepl/client";
-
-import { googleTranslateHttp } from "../services/google/client";
-
 import { createLogger, initLogging } from "../global/logger";
 
 const log = createLogger("background/index");
@@ -49,21 +38,6 @@ const isDeeplUsageMessage = (
     msg !== null &&
     "type" in msg &&
     msg.type === MSG_DEEPL_USAGE
-  );
-};
-
-const isGoogleTranslateMessage = (
-  msg: unknown,
-): msg is {
-  type: typeof MSG_GOOGLE_TRANSLATE;
-  payload: TranslateRequestPayload;
-} => {
-  return (
-    typeof msg === "object" &&
-    msg !== null &&
-    "type" in msg &&
-    msg.type === MSG_GOOGLE_TRANSLATE &&
-    "payload" in msg
   );
 };
 
@@ -125,34 +99,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (isGoogleTranslateMessage(msg)) {
-    void (async () => {
-      try {
-        const { key } = await getGoogleSettingsOrThrow();
-
-        await ensureGoogleUsageAvailable(msg.payload.texts);
-
-        const translations = await googleTranslateHttp(key, msg.payload);
-
-        await recordGoogleUsage(msg.payload.texts);
-
-        const out: TranslateResponse = {
-          ok: true,
-          translations,
-        };
-
-        sendResponse(out);
-      } catch (e: unknown) {
-        log.error("GOOGLE_TRANSLATE failed", e);
-
-        const out: TranslateResponse = {
-          ok: false,
-          error: String(e instanceof Error ? e.message : e),
-        };
-
-        sendResponse(out);
-      }
-    })();
-
+    void handleGoogleTranslateRequest(msg.payload).then(sendResponse);
     return true;
   }
 });

@@ -8,8 +8,6 @@ import type {
 export const MSG_DEEPL_TRANSLATE = "DEEPL_TRANSLATE" as const;
 export const MSG_DEEPL_USAGE = "DEEPL_USAGE" as const;
 
-export const MSG_GOOGLE_TRANSLATE = "GOOGLE_TRANSLATE" as const;
-
 export const sendDeeplTranslate = async (
   payload: TranslateRequestPayload,
 ): Promise<string[]> => {
@@ -23,6 +21,7 @@ export const sendDeeplTranslate = async (
   } catch (e: unknown) {
     const message =
       e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+
     throw new Error(`DEEPL_TRANSLATE sendMessage failed: ${message}`, {
       cause: e,
     });
@@ -53,6 +52,7 @@ export const sendDeeplUsage = async (): Promise<UsageResponse> => {
   } catch (e: unknown) {
     const message =
       e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+
     throw new Error(`DEEPL_USAGE sendMessage failed: ${message}`, {
       cause: e,
     });
@@ -69,38 +69,4 @@ export const sendDeeplUsage = async (): Promise<UsageResponse> => {
   }
 
   return resp.usage;
-};
-
-export const sendGoogleTranslate = async (
-  payload: TranslateRequestPayload,
-): Promise<string[]> => {
-  let resp: TranslateResponse | undefined;
-
-  try {
-    resp = await chrome.runtime.sendMessage({
-      type: MSG_GOOGLE_TRANSLATE,
-      payload,
-    });
-  } catch (e: unknown) {
-    const message =
-      e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
-
-    throw new Error(`GOOGLE_TRANSLATE sendMessage failed: ${message}`, {
-      cause: e,
-    });
-  }
-
-  if (!resp) {
-    throw new Error(
-      "GOOGLE_TRANSLATE: no response from background (handler didn't reply).",
-    );
-  }
-
-  if (!resp.ok) {
-    throw new Error(
-      resp.error || "Google translation failed (no error provided).",
-    );
-  }
-
-  return resp.translations;
 };

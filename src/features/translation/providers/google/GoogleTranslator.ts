@@ -1,5 +1,5 @@
-import { sendGoogleTranslate } from "../../../../protocol/messages";
 import type { Translator } from "../../Translator";
+import { sendGoogleTranslate } from "./googleMessages";
 
 export const googleTranslator: Translator = {
   translate: async (

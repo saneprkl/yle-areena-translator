@@ -1,5 +1,5 @@
-import type { TranslateRequestPayload } from "../../global/types";
-import { createLogger, initLogging } from "../../global/logger";
+import type { TranslateRequestPayload } from "../../../../global/types";
+import { createLogger, initLogging } from "../../../../global/logger";
 
 const log = createLogger("google/http");
 void initLogging();
@@ -26,7 +26,6 @@ export const googleTranslateHttp = async (
     targetLang: payload.targetLang,
     sourceLang: payload.sourceLang ?? null,
     textCount: payload.texts.length,
-    // optional: sizes only, not content
     textLengths: payload.texts.map((t) => t.length),
   });
 

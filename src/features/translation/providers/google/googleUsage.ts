@@ -1,8 +1,8 @@
 import {
   GOOGLE_MONTHLY_APP_LIMIT,
   STORAGE_GOOGLE_USAGE,
-} from "../../global/constants";
-import type { GoogleUsage } from "../../global/types";
+} from "../../../../global/constants";
+import type { GoogleUsage } from "../../../../global/types";
 
 const getCurrentMonth = (): string => {
   const parts = new Intl.DateTimeFormat("en-US", {
