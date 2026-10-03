@@ -1,6 +1,5 @@
 import { normalize } from "./utils";
 import { getAreenaVideoId } from "./video";
-import { loadCache, queueSaveCache } from "./cache";
 import { TranslationService } from "../../features/translation/TranslationService";
 import type { TranslationProvider } from "../../global/types";
 import { NativeSubtitleHider } from "./nativeSubtitles";
@@ -48,8 +47,6 @@ export class TranslatorSession {
       this.targetLang,
       this.provider,
       this.videoId,
-      loadCache,
-      queueSaveCache,
     );
   }
 
@@ -124,9 +121,17 @@ export class TranslatorSession {
     list.addEventListener("removetrack", handler as EventListener);
     list.addEventListener("change", handler as EventListener);
 
-    this.video.addEventListener("loadedmetadata", handler, { passive: true });
-    this.video.addEventListener("loadstart", handler, { passive: true });
-    this.video.addEventListener("emptied", handler, { passive: true });
+    this.video.addEventListener("loadedmetadata", handler, {
+      passive: true,
+    });
+
+    this.video.addEventListener("loadstart", handler, {
+      passive: true,
+    });
+
+    this.video.addEventListener("emptied", handler, {
+      passive: true,
+    });
 
     this.tracksPoll = window.setInterval(handler, 500);
 

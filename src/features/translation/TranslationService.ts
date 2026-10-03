@@ -1,63 +1,28 @@
 import type { TranslationProvider } from "../../global/types";
 import { createLogger, initLogging } from "../../global/logger";
 import type { Translator } from "./Translator";
+import { TranslationCache } from "./TranslationCache";
 import { getTranslator } from "./translators";
-
-type TranslationCache = Map<string, string>;
-
-type LoadTranslationCache = (
-  videoId: string,
-  targetLang: string,
-  provider: TranslationProvider,
-) => Promise<TranslationCache>;
-
-type QueueSaveTranslationCache = (
-  videoId: string,
-  targetLang: string,
-  cache: TranslationCache,
-  provider: TranslationProvider,
-) => void;
 
 const log = createLogger("translation/TranslationService");
 void initLogging();
 
 export class TranslationService {
   private readonly translator: Translator;
-
-  private cache: TranslationCache = new Map();
+  private readonly cache: TranslationCache;
 
   constructor(
     private readonly targetLang: string,
     private readonly provider: TranslationProvider,
-    private videoId: string,
-    private readonly loadCache: LoadTranslationCache,
-    private readonly queueSaveCache: QueueSaveTranslationCache,
+    videoId: string,
   ) {
     this.translator = getTranslator(provider);
+
+    this.cache = new TranslationCache(targetLang, provider, videoId);
   }
 
   loadForVideo = async (videoId: string): Promise<void> => {
-    const videoChanged = videoId !== this.videoId;
-
-    if (videoChanged) {
-      this.videoId = videoId;
-
-      this.cache = await this.loadCache(
-        this.videoId,
-        this.targetLang,
-        this.provider,
-      );
-
-      return;
-    }
-
-    if (!this.cache.size) {
-      this.cache = await this.loadCache(
-        this.videoId,
-        this.targetLang,
-        this.provider,
-      );
-    }
+    await this.cache.loadForVideo(videoId);
   };
 
   translate = async (texts: string[]): Promise<string[]> => {
@@ -88,18 +53,9 @@ export class TranslationService {
         translated,
       });
 
-      for (let i = 0; i < missing.length; i++) {
-        this.cache.set(missing[i], translated[i] ?? "");
-      }
-
-      this.queueSaveCache(
-        this.videoId,
-        this.targetLang,
-        this.cache,
-        this.provider,
-      );
+      this.cache.setTranslations(missing, translated);
     }
 
-    return texts.map((text) => this.cache.get(text) || text);
+    return this.cache.resolve(texts);
   };
 }
