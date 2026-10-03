@@ -1,8 +1,7 @@
 import { normalize } from "./utils";
 import { getAreenaVideoId } from "./video";
 import { loadCache, queueSaveCache } from "./cache";
-import { getTranslator } from "../../features/translation/translators";
-import type { Translator } from "../../features/translation/Translator";
+import { TranslationService } from "../../features/translation/TranslationService";
 import type { TranslationProvider } from "../../global/types";
 import { NativeSubtitleHider } from "./nativeSubtitles";
 import { getCueText, pickSubtitleTrack } from "./tracks";
@@ -13,7 +12,8 @@ const log = createLogger("areena/TranslatorSession");
 void initLogging();
 
 export class TranslatorSession {
-  private readonly translator: Translator;
+  private readonly translationService: TranslationService;
+
   private running = false;
   private translationDisabled = false;
 
@@ -21,7 +21,6 @@ export class TranslatorSession {
   private prevOnCueChange: ((this: TextTrack, ev: Event) => void) | null = null;
   private prevTrackMode: TextTrackMode | null = null;
 
-  private cache: Map<string, string> = new Map();
   private videoId = getAreenaVideoId();
 
   private hider = new NativeSubtitleHider();
@@ -45,7 +44,13 @@ export class TranslatorSession {
     private provider: TranslationProvider,
     private ui: AreenaUI,
   ) {
-    this.translator = getTranslator(provider);
+    this.translationService = new TranslationService(
+      this.targetLang,
+      this.provider,
+      this.videoId,
+      loadCache,
+      queueSaveCache,
+    );
   }
 
   start = async (): Promise<void> => {
@@ -102,10 +107,6 @@ export class TranslatorSession {
     log.info(`tracks @ ${where}`, tracks);
   };
 
-  private translate = async (texts: string[]): Promise<string[]> => {
-    return this.translator.translate(texts, this.targetLang);
-  };
-
   private installTrackWatchers = (): void => {
     if (this.tracksList) return;
 
@@ -116,6 +117,7 @@ export class TranslatorSession {
       this.logTracks("watcher");
       this.requestAttachTrack();
     };
+
     this.tracksHandler = handler;
 
     list.addEventListener("addtrack", handler as EventListener);
@@ -186,6 +188,7 @@ export class TranslatorSession {
     this.clearMissingHint();
 
     if (candidate === this.track) return;
+
     void this.attachTrack(candidate);
   };
 
@@ -196,13 +199,17 @@ export class TranslatorSession {
     for (let i = 0; i < list.length; i++) {
       if (list[i] === track) return true;
     }
+
     return false;
   };
 
   private detachTrack = (): void => {
     if (this.track) {
       this.track.oncuechange = this.prevOnCueChange;
-      if (this.prevTrackMode) this.track.mode = this.prevTrackMode;
+
+      if (this.prevTrackMode) {
+        this.track.mode = this.prevTrackMode;
+      }
 
       log.info("detached track", {
         kind: this.track.kind,
@@ -210,6 +217,7 @@ export class TranslatorSession {
         language: this.track.language,
       });
     }
+
     this.track = null;
     this.prevOnCueChange = null;
     this.prevTrackMode = null;
@@ -222,6 +230,7 @@ export class TranslatorSession {
       this.attachQueued = true;
       return;
     }
+
     this.attaching = true;
 
     try {
@@ -241,24 +250,12 @@ export class TranslatorSession {
         activeCues: track.activeCues?.length ?? 0,
       });
 
-      const newVideoId = getAreenaVideoId();
-      if (newVideoId !== this.videoId) {
-        this.videoId = newVideoId;
+      this.videoId = getAreenaVideoId();
 
-        this.cache = await loadCache(
-          this.videoId,
-          this.targetLang,
-          this.provider,
-        );
-      } else if (!this.cache.size) {
-        this.cache = await loadCache(
-          this.videoId,
-          this.targetLang,
-          this.provider,
-        );
-      }
+      await this.translationService.loadForVideo(this.videoId);
 
       this.prevOnCueChange = track.oncuechange;
+
       track.oncuechange = () => {
         log.info("cuechange fired", {
           mode: track.mode,
@@ -266,12 +263,14 @@ export class TranslatorSession {
           activeCues: track.activeCues?.length ?? 0,
           currentTime: this.video.currentTime,
         });
+
         void this.render();
       };
 
       await this.render();
     } finally {
       this.attaching = false;
+
       if (this.attachQueued) {
         this.attachQueued = false;
         this.requestAttachTrack();
@@ -284,10 +283,13 @@ export class TranslatorSession {
 
     this.missingHintTimer = window.setTimeout(() => {
       this.missingHintTimer = null;
+
       if (!this.running || this.track) return;
 
       this.showingMissingHint = true;
+
       log.warn("showing missing subtitle hint");
+
       this.ui.showSubtitle(
         "Waiting for subtitles… (turn subtitles on in the player)",
       );
@@ -299,6 +301,7 @@ export class TranslatorSession {
       window.clearTimeout(this.missingHintTimer);
       this.missingHintTimer = null;
     }
+
     if (this.showingMissingHint) {
       this.showingMissingHint = false;
       this.ui.hideSubtitle();
@@ -312,10 +315,12 @@ export class TranslatorSession {
       this.renderQueued = true;
       return;
     }
+
     this.renderInFlight = true;
 
     try {
       const active = Array.from(this.track.activeCues ?? []);
+
       if (!active.length) {
         log.info("render(): no active cues", {
           mode: this.track.mode,
@@ -323,6 +328,7 @@ export class TranslatorSession {
           activeCues: this.track.activeCues?.length ?? 0,
           currentTime: this.video.currentTime,
         });
+
         this.ui.hideSubtitle();
         return;
       }
@@ -347,53 +353,19 @@ export class TranslatorSession {
         return;
       }
 
-      const missing = Array.from(
-        new Set(originals.filter((t) => !this.cache.has(t))),
-      );
+      try {
+        const translated = await this.translationService.translate(originals);
 
-      log.info("render(): cache status", {
-        originalsCount: originals.length,
-        missingCount: missing.length,
-        missing,
-      });
+        this.ui.showSubtitle(translated.join("\n"));
+      } catch (err: unknown) {
+        log.error(`${this.provider} translation failed`, err);
 
-      if (missing.length) {
-        try {
-          log.info("calling translation provider", {
-            provider: this.provider,
-            targetLang: this.targetLang,
-            missing,
-          });
-
-          const translated = await this.translate(missing);
-
-          log.info("translation provider returned", {
-            provider: this.provider,
-            translated,
-          });
-
-          for (let i = 0; i < missing.length; i++) {
-            this.cache.set(missing[i], translated[i] ?? "");
-          }
-          queueSaveCache(
-            this.videoId,
-            this.targetLang,
-            this.cache,
-            this.provider,
-          );
-        } catch (err: unknown) {
-          log.error(`${this.provider} translation failed`, err);
-          this.translationDisabled = true;
-          this.ui.showSubtitle(originals.join("\n"));
-          return;
-        }
+        this.translationDisabled = true;
+        this.ui.showSubtitle(originals.join("\n"));
       }
-
-      this.ui.showSubtitle(
-        originals.map((t) => this.cache.get(t) || t).join("\n"),
-      );
     } finally {
       this.renderInFlight = false;
+
       if (this.renderQueued) {
         this.renderQueued = false;
         void this.render();
