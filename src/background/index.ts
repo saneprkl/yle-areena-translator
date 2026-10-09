@@ -1,38 +1,27 @@
-import { MSG_DEEPL_TRANSLATE, MSG_DEEPL_USAGE } from "../protocol/messages";
-import type { TranslateRequestPayload, TranslateResponse, UsageWireResponse } from "../global/types";
-import { getSettingsOrThrow } from "./settings";
-import { deeplTranslateHttp, deeplUsageHttp } from "../services/deepl/client";
+import {
+  handleDeeplTranslateRequest,
+  handleDeeplUsageRequest,
+  isDeeplTranslateMessage,
+  isDeeplUsageMessage,
+} from "../features/translation/providers/deepl/deeplMessages";
+import {
+  handleGoogleTranslateRequest,
+  isGoogleTranslateMessage,
+} from "../features/translation/providers/google/googleMessages";
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg?.type === MSG_DEEPL_TRANSLATE) {
-    (async () => {
-      try {
-        const { key, origin } = await getSettingsOrThrow();
-        const translations = await deeplTranslateHttp(origin, key, msg.payload as TranslateRequestPayload);
-        const out: TranslateResponse = { ok: true, translations };
-        sendResponse(out);
-      } catch (e: any) {
-        const out: TranslateResponse = { ok: false, error: String(e?.message || e) };
-        sendResponse(out);
-      }
-    })();
-
+  if (isDeeplTranslateMessage(msg)) {
+    void handleDeeplTranslateRequest(msg.payload).then(sendResponse);
     return true;
   }
 
-  if (msg?.type === MSG_DEEPL_USAGE) {
-    (async () => {
-      try {
-        const { key, origin } = await getSettingsOrThrow();
-        const usage = await deeplUsageHttp(origin, key);
-        const out: UsageWireResponse = { ok: true, usage };
-        sendResponse(out);
-      } catch (e: any) {
-        const out: UsageWireResponse = { ok: false, error: String(e?.message || e) };
-        sendResponse(out);
-      }
-    })();
+  if (isDeeplUsageMessage(msg)) {
+    void handleDeeplUsageRequest().then(sendResponse);
+    return true;
+  }
 
+  if (isGoogleTranslateMessage(msg)) {
+    void handleGoogleTranslateRequest(msg.payload).then(sendResponse);
     return true;
   }
 });

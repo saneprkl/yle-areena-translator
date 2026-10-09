@@ -14,12 +14,12 @@ export const subtitleBoxStyle: Partial<CSSStyleDeclaration> = {
   pointerEvents: "none",
   fontFamily:
     'system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans", Arial, sans-serif',
-  fontSize: "42px",
+  fontSize: "58px",
   lineHeight: "1.35",
   fontWeight: "650",
-  textShadow: "0 2px 8px rgba(0,0,0,0.95)"
+  textShadow: "0 2px 8px rgba(0,0,0,0.95)",
 };
 
-export function applySubtitleBoxStyles(el: HTMLDivElement) {
+export const applySubtitleBoxStyles = (el: HTMLDivElement): void => {
   Object.assign(el.style, subtitleBoxStyle);
-}
+};

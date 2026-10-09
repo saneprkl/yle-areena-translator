@@ -1,22 +1,31 @@
+import type { TranslationProvider } from "../../global/types";
 import { SubtitleOverlay } from "./SubtitleOverlay/SubtitleOverlay";
 
 export class AreenaUI {
   private root: HTMLDivElement | null = null;
+
   private subtitle: SubtitleOverlay | null = null;
+
   private toggleBtn: HTMLButtonElement | null = null;
+  private providerSelect: HTMLSelectElement | null = null;
   private toggleHost: HTMLDivElement | null = null;
 
   private fallbackHideTimer: number | null = null;
+
   private onToggle: (() => void | Promise<void>) | null = null;
+  private onProviderChange:
+    | ((provider: TranslationProvider) => void | Promise<void>)
+    | null = null;
 
   private boundVideo: HTMLVideoElement | null = null;
+
   private bumpHandler: (() => void) | null = null;
   private pauseHandler: (() => void) | null = null;
 
   private domObserver: MutationObserver | null = null;
   private reattachRaf: number | null = null;
 
-  mount(video: HTMLVideoElement) {
+  mount = (video: HTMLVideoElement): void => {
     if (this.root) this.destroy();
 
     this.cleanupStrayUi();
@@ -25,7 +34,7 @@ export class AreenaUI {
     const parent = video.parentElement ?? document.body;
 
     if (getComputedStyle(parent).position === "static") {
-      (parent as HTMLElement).style.position = "relative";
+      parent.style.position = "relative";
     }
 
     this.root = document.createElement("div");
@@ -34,7 +43,7 @@ export class AreenaUI {
     this.root.style.inset = "0";
     this.root.style.zIndex = "2147483647";
     this.root.style.pointerEvents = "none";
-    (parent as HTMLElement).appendChild(this.root);
+    parent.appendChild(this.root);
 
     this.subtitle = new SubtitleOverlay();
     this.subtitle.mount(this.root);
@@ -60,17 +69,53 @@ export class AreenaUI {
     this.toggleBtn.textContent = "Translate: OFF";
     this.toggleBtn.onclick = () => void this.onToggle?.();
 
+    this.providerSelect = document.createElement("select");
+    this.providerSelect.id = "areena-translation-provider";
+    this.providerSelect.setAttribute("aria-label", "Translation provider");
+    this.providerSelect.title = "Translation provider";
+    this.providerSelect.style.padding = "6px 8px";
+    this.providerSelect.style.borderRadius = "999px";
+    this.providerSelect.style.border = "1px solid rgba(255,255,255,0.28)";
+    this.providerSelect.style.background = "rgba(0,0,0,0.35)";
+    this.providerSelect.style.color = "#fff";
+    this.providerSelect.style.fontFamily =
+      'system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans", Arial, sans-serif';
+    this.providerSelect.style.fontSize = "13px";
+    this.providerSelect.style.fontWeight = "700";
+    this.providerSelect.style.cursor = "pointer";
+    this.providerSelect.style.pointerEvents = "auto";
+    this.providerSelect.style.userSelect = "none";
+
+    const deeplOption = document.createElement("option");
+    deeplOption.value = "deepl";
+    deeplOption.textContent = "DeepL";
+
+    const googleOption = document.createElement("option");
+    googleOption.value = "google";
+    googleOption.textContent = "Google";
+
+    this.providerSelect.append(deeplOption, googleOption);
+
+    this.providerSelect.onchange = () => {
+      const provider = this.providerSelect?.value;
+
+      if (provider === "deepl" || provider === "google") {
+        void this.onProviderChange?.(provider);
+      }
+    };
+
     this.reattachToggle(video);
     this.startObserving(video);
-  }
+  };
 
-  destroy() {
+  destroy = (): void => {
     this.stopFallbackAutoHide();
 
     if (this.domObserver) {
       this.domObserver.disconnect();
       this.domObserver = null;
     }
+
     if (this.reattachRaf) {
       cancelAnimationFrame(this.reattachRaf);
       this.reattachRaf = null;
@@ -81,11 +126,13 @@ export class AreenaUI {
       this.boundVideo.removeEventListener("touchstart", this.bumpHandler);
       this.boundVideo.removeEventListener("play", this.bumpHandler);
     }
+
     if (this.boundVideo && this.pauseHandler) {
       this.boundVideo.removeEventListener("pause", this.pauseHandler);
     }
 
     this.toggleBtn?.remove();
+    this.providerSelect?.remove();
     this.toggleHost?.remove();
     this.subtitle?.destroy();
     this.root?.remove();
@@ -93,57 +140,93 @@ export class AreenaUI {
     this.root = null;
     this.subtitle = null;
     this.toggleBtn = null;
+    this.providerSelect = null;
     this.toggleHost = null;
     this.onToggle = null;
+    this.onProviderChange = null;
     this.boundVideo = null;
     this.bumpHandler = null;
     this.pauseHandler = null;
-  }
+  };
 
-  private cleanupStrayUi() {
+  private cleanupStrayUi = (): void => {
     document.querySelectorAll("#areena-deepl-root").forEach((n) => n.remove());
-    document.querySelectorAll("#areena-deepl-toggle").forEach((n) => n.remove());
-    document.querySelectorAll("#areena-deepl-subs").forEach((n) => n.remove());
-    document.querySelectorAll('[data-areena-deepl-host="1"]').forEach((n) => n.remove());
-  }
 
-  private startObserving(video: HTMLVideoElement) {
-    const parent = (video.parentElement ?? document.body) as HTMLElement;
+    document
+      .querySelectorAll("#areena-deepl-toggle")
+      .forEach((n) => n.remove());
+
+    document
+      .querySelectorAll("#areena-translation-provider")
+      .forEach((n) => n.remove());
+
+    document.querySelectorAll("#areena-deepl-subs").forEach((n) => n.remove());
+
+    document
+      .querySelectorAll('[data-areena-deepl-host="1"]')
+      .forEach((n) => n.remove());
+  };
+
+  private startObserving = (video: HTMLVideoElement): void => {
+    const parent = video.parentElement ?? document.body;
 
     this.domObserver = new MutationObserver(() => {
       if (!this.boundVideo) return;
       if (this.reattachRaf) return;
+
       this.reattachRaf = requestAnimationFrame(() => {
         this.reattachRaf = null;
         this.reattachToggle(this.boundVideo!);
       });
     });
 
-    this.domObserver.observe(parent, { subtree: true, childList: true });
-  }
+    this.domObserver.observe(parent, {
+      subtree: true,
+      childList: true,
+    });
+  };
 
-  setOnToggle(fn: () => void | Promise<void>) {
+  setOnToggle = (fn: () => void | Promise<void>): void => {
     this.onToggle = fn;
-  }
+  };
 
-  setToggleLabel(enabled: boolean, targetLang: string) {
+  setOnProviderChange = (
+    fn: (provider: TranslationProvider) => void | Promise<void>,
+  ): void => {
+    this.onProviderChange = fn;
+  };
+
+  setToggleLabel = (enabled: boolean, targetLang: string): void => {
     if (!this.toggleBtn) return;
-    this.toggleBtn.textContent = enabled ? `Translate: ON (${targetLang})` : "Translate: OFF";
-    this.toggleBtn.style.outline = enabled ? "2px solid rgba(80,200,120,0.9)" : "none";
-  }
 
-  showSubtitle(text: string) {
+    this.toggleBtn.textContent = enabled
+      ? `Translate: ON (${targetLang})`
+      : "Translate: OFF";
+
+    this.toggleBtn.style.outline = enabled
+      ? "2px solid rgba(80,200,120,0.9)"
+      : "none";
+  };
+
+  setProvider = (provider: TranslationProvider): void => {
+    if (!this.providerSelect) return;
+
+    this.providerSelect.value = provider;
+  };
+
+  showSubtitle = (text: string): void => {
     this.subtitle?.show(text);
-  }
+  };
 
-  hideSubtitle() {
+  hideSubtitle = (): void => {
     this.subtitle?.hide();
-  }
+  };
 
-  reattachToggle(video: HTMLVideoElement) {
-    if (!this.root || !this.toggleBtn) return;
+  reattachToggle = (video: HTMLVideoElement): void => {
+    if (!this.root || !this.toggleBtn || !this.providerSelect) return;
 
     const bar = this.findControlBar(video);
+
     if (bar) {
       if (!this.toggleHost) {
         this.toggleHost = document.createElement("div");
@@ -151,6 +234,7 @@ export class AreenaUI {
         this.toggleHost.style.display = "flex";
         this.toggleHost.style.alignItems = "center";
         this.toggleHost.style.justifyContent = "center";
+        this.toggleHost.style.gap = "6px";
         this.toggleHost.style.pointerEvents = "auto";
         this.toggleHost.style.flex = "1 1 auto";
         this.toggleHost.style.minWidth = "60px";
@@ -159,6 +243,7 @@ export class AreenaUI {
         this.toggleHost.style.display = "flex";
         this.toggleHost.style.alignItems = "center";
         this.toggleHost.style.justifyContent = "center";
+        this.toggleHost.style.gap = "6px";
         this.toggleHost.style.pointerEvents = "auto";
         this.toggleHost.style.flex = "1 1 auto";
         this.toggleHost.style.minWidth = "60px";
@@ -181,9 +266,15 @@ export class AreenaUI {
         this.toggleHost.remove();
         bar.insertBefore(this.toggleHost, ref);
       }
+
       if (this.toggleBtn.parentElement !== this.toggleHost) {
         this.toggleBtn.remove();
         this.toggleHost.appendChild(this.toggleBtn);
+      }
+
+      if (this.providerSelect.parentElement !== this.toggleHost) {
+        this.providerSelect.remove();
+        this.toggleHost.appendChild(this.providerSelect);
       }
 
       this.stopFallbackAutoHide();
@@ -202,10 +293,10 @@ export class AreenaUI {
     }
 
     this.toggleHost?.remove();
-  }
+  };
 
-  private findControlBar(video: HTMLVideoElement): HTMLElement | null {
-    const container = (video.parentElement ?? document.body) as HTMLElement;
+  private findControlBar = (video: HTMLVideoElement): HTMLElement | null => {
+    const container = video.parentElement ?? document.body;
 
     const selectors = [
       '[role="toolbar"]',
@@ -214,29 +305,39 @@ export class AreenaUI {
       '[class*="controls"]',
       '[class*="Controls"]',
       '[data-testid*="control"]',
-      '[data-test*="control"]'
+      '[data-test*="control"]',
     ].join(",");
 
-    const candidates = Array.from(container.querySelectorAll<HTMLElement>(selectors));
+    const candidates = Array.from(
+      container.querySelectorAll<HTMLElement>(selectors),
+    );
+
     const vRect = video.getBoundingClientRect();
 
     const nearBottom = candidates.filter((el) => {
       const r = el.getBoundingClientRect();
+
       const visible = r.width > 250 && r.height > 20 && r.height < 140;
+
       const closeToVideo =
         r.left < vRect.right &&
         r.right > vRect.left &&
         r.bottom <= vRect.bottom + 20 &&
         r.top >= vRect.bottom - 220;
+
       return visible && closeToVideo;
     });
 
-    nearBottom.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width);
-    return nearBottom[0] ?? null;
-  }
+    nearBottom.sort(
+      (a, b) =>
+        b.getBoundingClientRect().width - a.getBoundingClientRect().width,
+    );
 
-  private ensureFallbackHost() {
-    if (!this.root || !this.toggleBtn) return;
+    return nearBottom[0] ?? null;
+  };
+
+  private ensureFallbackHost = (): void => {
+    if (!this.root || !this.toggleBtn || !this.providerSelect) return;
 
     if (!this.toggleHost) {
       this.toggleHost = document.createElement("div");
@@ -251,9 +352,10 @@ export class AreenaUI {
     this.toggleHost.style.opacity = "0";
     this.toggleHost.style.transition = "opacity 150ms ease";
 
-    this.toggleHost.style.display = "";
-    this.toggleHost.style.alignItems = "";
-    this.toggleHost.style.justifyContent = "";
+    this.toggleHost.style.display = "flex";
+    this.toggleHost.style.alignItems = "center";
+    this.toggleHost.style.justifyContent = "center";
+    this.toggleHost.style.gap = "6px";
     this.toggleHost.style.flex = "";
     this.toggleHost.style.minWidth = "";
 
@@ -262,32 +364,47 @@ export class AreenaUI {
       this.root.appendChild(this.toggleHost);
     }
 
-    document.querySelectorAll('[data-areena-deepl-host="1"]').forEach((host) => {
-      if (host !== this.toggleHost) host.remove();
-    });
+    document
+      .querySelectorAll('[data-areena-deepl-host="1"]')
+      .forEach((host) => {
+        if (host !== this.toggleHost) host.remove();
+      });
 
     if (this.toggleBtn.parentElement !== this.toggleHost) {
       this.toggleBtn.remove();
       this.toggleHost.appendChild(this.toggleBtn);
     }
-  }
 
-  private showFallbackToggle() {
+    if (this.providerSelect.parentElement !== this.toggleHost) {
+      this.providerSelect.remove();
+      this.toggleHost.appendChild(this.providerSelect);
+    }
+  };
+
+  private showFallbackToggle = (): void => {
     if (!this.toggleHost) return;
+
     this.toggleHost.style.opacity = "1";
-  }
+  };
 
-  private hideFallbackToggle() {
+  private hideFallbackToggle = (): void => {
     if (!this.toggleHost) return;
-    this.toggleHost.style.opacity = "0";
-  }
 
-  private startFallbackAutoHide(video: HTMLVideoElement) {
+    this.toggleHost.style.opacity = "0";
+  };
+
+  private startFallbackAutoHide = (video: HTMLVideoElement): void => {
     const bump = () => {
       this.showFallbackToggle();
-      if (this.fallbackHideTimer) window.clearTimeout(this.fallbackHideTimer);
+
+      if (this.fallbackHideTimer) {
+        window.clearTimeout(this.fallbackHideTimer);
+      }
+
       this.fallbackHideTimer = window.setTimeout(() => {
-        if (!video.paused) this.hideFallbackToggle();
+        if (!video.paused) {
+          this.hideFallbackToggle();
+        }
       }, 1800);
     };
 
@@ -295,23 +412,30 @@ export class AreenaUI {
       this.bumpHandler = bump;
       this.pauseHandler = () => this.showFallbackToggle();
 
-      video.addEventListener("mousemove", this.bumpHandler, { passive: true });
-      video.addEventListener("touchstart", this.bumpHandler, { passive: true });
+      video.addEventListener("mousemove", this.bumpHandler, {
+        passive: true,
+      });
+
+      video.addEventListener("touchstart", this.bumpHandler, {
+        passive: true,
+      });
+
       video.addEventListener("play", this.bumpHandler);
       video.addEventListener("pause", this.pauseHandler);
     }
 
     bump();
-  }
+  };
 
-  private stopFallbackAutoHide() {
+  private stopFallbackAutoHide = (): void => {
     if (this.fallbackHideTimer) {
       window.clearTimeout(this.fallbackHideTimer);
       this.fallbackHideTimer = null;
     }
+
     if (this.toggleHost) {
       this.toggleHost.style.opacity = "";
       this.toggleHost.style.transition = "";
     }
-  }
+  };
 }

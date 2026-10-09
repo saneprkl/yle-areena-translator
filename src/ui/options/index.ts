@@ -1,61 +1,131 @@
-import { STORAGE_DEEPL_ENDPOINT, STORAGE_DEEPL_KEY } from "../../global/constants";
-import type { Settings } from "../../global/types";
-import { sendDeeplUsage } from "../../protocol/messages";
+import {
+  GOOGLE_MONTHLY_APP_LIMIT,
+  GOOGLE_MONTHLY_FREE_LIMIT,
+  STORAGE_DEEPL_ENDPOINT,
+  STORAGE_DEEPL_KEY,
+  STORAGE_GOOGLE_KEY,
+} from "../../global/constants";
+import { sendDeeplUsage } from "../../features/translation/providers/deepl/deeplMessages";
+import { getGoogleUsage } from "../../features/translation/providers/google/googleUsage";
 
-const keyEl = document.getElementById("key") as HTMLInputElement;
+const deeplKeyEl = document.getElementById("deeplKey") as HTMLInputElement;
 const endpointEl = document.getElementById("endpoint") as HTMLSelectElement;
-const showKeyEl = document.getElementById("showKey") as HTMLInputElement;
-const clearKeyBtn = document.getElementById("clearKey") as HTMLButtonElement;
+const showDeeplKeyEl = document.getElementById(
+  "showDeeplKey",
+) as HTMLInputElement;
+const clearDeeplKeyBtn = document.getElementById(
+  "clearDeeplKey",
+) as HTMLButtonElement;
+
+const googleKeyEl = document.getElementById("googleKey") as HTMLInputElement;
+const showGoogleKeyEl = document.getElementById(
+  "showGoogleKey",
+) as HTMLInputElement;
+const clearGoogleKeyBtn = document.getElementById(
+  "clearGoogleKey",
+) as HTMLButtonElement;
+
+const googleUsageText = document.getElementById(
+  "googleUsageText",
+) as HTMLDivElement;
+
+const refreshGoogleUsageBtn = document.getElementById(
+  "refreshGoogleUsage",
+) as HTMLButtonElement;
+
 const saveBtn = document.getElementById("save") as HTMLButtonElement;
 const saveStatus = document.getElementById("saveStatus") as HTMLDivElement;
 
-const refreshUsageBtn = document.getElementById("refreshUsage") as HTMLButtonElement;
+const refreshUsageBtn = document.getElementById(
+  "refreshUsage",
+) as HTMLButtonElement;
 const usageText = document.getElementById("usageText") as HTMLDivElement;
 
-function setSaveStatus(msg: string) {
+const setSaveStatus = (msg: string): void => {
   saveStatus.textContent = msg;
-  setTimeout(() => (saveStatus.textContent = ""), 2500);
-}
 
-function fmt(n: number) {
+  setTimeout(() => {
+    saveStatus.textContent = "";
+  }, 2500);
+};
+
+const fmt = (n: number): string => {
   return new Intl.NumberFormat().format(n);
-}
+};
 
-async function load() {
-  const { deeplKey, deeplEndpoint } = (await chrome.storage.sync.get([
+const load = async (): Promise<void> => {
+  const stored = await chrome.storage.sync.get([
     STORAGE_DEEPL_KEY,
-    STORAGE_DEEPL_ENDPOINT
-  ])) as Settings;
+    STORAGE_DEEPL_ENDPOINT,
+    STORAGE_GOOGLE_KEY,
+  ]);
 
-  keyEl.value = deeplKey ?? "";
-  endpointEl.value = deeplEndpoint ?? "https://api-free.deepl.com";
-  keyEl.type = showKeyEl.checked ? "text" : "password";
-}
+  deeplKeyEl.value = typeof stored.deeplKey === "string" ? stored.deeplKey : "";
 
-showKeyEl.addEventListener("change", () => {
-  keyEl.type = showKeyEl.checked ? "text" : "password";
+  endpointEl.value =
+    typeof stored.deeplEndpoint === "string"
+      ? stored.deeplEndpoint
+      : "https://api-free.deepl.com";
+
+  googleKeyEl.value =
+    typeof stored.googleKey === "string" ? stored.googleKey : "";
+
+  deeplKeyEl.type = showDeeplKeyEl.checked ? "text" : "password";
+  googleKeyEl.type = showGoogleKeyEl.checked ? "text" : "password";
+};
+
+showDeeplKeyEl.addEventListener("change", () => {
+  deeplKeyEl.type = showDeeplKeyEl.checked ? "text" : "password";
 });
 
-clearKeyBtn.addEventListener("click", async () => {
-  keyEl.value = "";
-  await chrome.storage.sync.set({ [STORAGE_DEEPL_KEY]: "" });
-  setSaveStatus("Key cleared.");
-  usageText.textContent = "No key set.";
+showGoogleKeyEl.addEventListener("change", () => {
+  googleKeyEl.type = showGoogleKeyEl.checked ? "text" : "password";
 });
 
-saveBtn.addEventListener("click", async () => {
-  await chrome.storage.sync.set({
-    [STORAGE_DEEPL_KEY]: keyEl.value.trim(),
-    [STORAGE_DEEPL_ENDPOINT]: endpointEl.value
-  });
-  setSaveStatus("Saved.");
-  await refreshUsage();
+clearDeeplKeyBtn.addEventListener("click", () => {
+  void (async () => {
+    deeplKeyEl.value = "";
+
+    await chrome.storage.sync.set({
+      [STORAGE_DEEPL_KEY]: "",
+    });
+
+    setSaveStatus("DeepL key cleared.");
+    usageText.textContent = "No DeepL key set.";
+  })();
 });
 
-async function refreshUsage() {
-  const { deeplKey } = (await chrome.storage.sync.get([STORAGE_DEEPL_KEY])) as Settings;
-  if (!deeplKey) {
-    usageText.textContent = "No key set.";
+clearGoogleKeyBtn.addEventListener("click", () => {
+  void (async () => {
+    googleKeyEl.value = "";
+
+    await chrome.storage.sync.set({
+      [STORAGE_GOOGLE_KEY]: "",
+    });
+
+    setSaveStatus("Google key cleared.");
+  })();
+});
+
+saveBtn.addEventListener("click", () => {
+  void (async () => {
+    await chrome.storage.sync.set({
+      [STORAGE_DEEPL_KEY]: deeplKeyEl.value.trim(),
+      [STORAGE_DEEPL_ENDPOINT]: endpointEl.value,
+      [STORAGE_GOOGLE_KEY]: googleKeyEl.value.trim(),
+    });
+
+    setSaveStatus("Saved.");
+
+    await Promise.all([refreshUsage(), refreshGoogleUsage()]);
+  })();
+});
+
+const refreshUsage = async (): Promise<void> => {
+  const stored = await chrome.storage.sync.get([STORAGE_DEEPL_KEY]);
+
+  if (!stored.deeplKey) {
+    usageText.textContent = "No DeepL key set.";
     return;
   }
 
@@ -65,27 +135,59 @@ async function refreshUsage() {
     const u = await sendDeeplUsage();
 
     const used =
-      typeof (u as any).api_key_character_count === "number"
-        ? (u as any).api_key_character_count
-        : (u as any).character_count;
+      typeof u.api_key_character_count === "number"
+        ? u.api_key_character_count
+        : u.character_count;
 
     const limit =
-      typeof (u as any).api_key_character_limit === "number" && (u as any).api_key_character_limit > 0
-        ? (u as any).api_key_character_limit
-        : (u as any).character_limit;
+      typeof u.api_key_character_limit === "number" &&
+      u.api_key_character_limit > 0
+        ? u.api_key_character_limit
+        : u.character_limit;
 
     if (typeof used === "number" && typeof limit === "number") {
       usageText.textContent = `Characters used: ${fmt(used)} / ${fmt(limit)} (${Math.round(
-        (used / limit) * 100
+        (used / limit) * 100,
       )}%)`;
     } else {
-      usageText.textContent = "Usage data returned, but fields were unexpected.";
+      usageText.textContent =
+        "Usage data returned, but fields were unexpected.";
     }
-  } catch (e: any) {
-    usageText.textContent = `Usage error: ${String(e?.message || e)}`;
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+
+    usageText.textContent = `Usage error: ${message}`;
   }
-}
+};
+
+const refreshGoogleUsage = async (): Promise<void> => {
+  try {
+    const usage = await getGoogleUsage();
+
+    const percentage = Math.round(
+      (usage.characterCount / GOOGLE_MONTHLY_APP_LIMIT) * 100,
+    );
+
+    googleUsageText.textContent =
+      `Characters used: ${fmt(usage.characterCount)} / ` +
+      `${fmt(GOOGLE_MONTHLY_APP_LIMIT)} (${percentage}%) ` +
+      `— ${usage.month}`;
+  } catch (e: unknown) {
+    const message =
+      e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+
+    googleUsageText.textContent = `Usage error: ${message}`;
+  }
+};
 
 refreshUsageBtn.addEventListener("click", () => void refreshUsage());
 
-load().then(() => void refreshUsage());
+refreshGoogleUsageBtn.addEventListener(
+  "click",
+  () => void refreshGoogleUsage(),
+);
+
+void load().then(() => {
+  void Promise.all([refreshUsage(), refreshGoogleUsage()]);
+});
